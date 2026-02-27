@@ -1,3 +1,6 @@
+# ~/.config/fish/functions/prettier.fish
+# Purpose: Project-first Prettier wrapper with global-config fallback and `.gitignore` support.
+# Usage: Autoloaded on first `prettier ...` call; run exactly like Prettier CLI (for example `prettier . --write`).
 function prettier --description "Project-first Prettier with fallback config and message"
     # path to your personal global config
     set CONFIG "$HOME/.config/prettier/global.prettier.config.js"
@@ -34,3 +37,4 @@ function prettier --description "Project-first Prettier with fallback config and
             $argv
     end
 end
+

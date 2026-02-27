@@ -1,6 +1,6 @@
-# ~/.config/fish/conf.d/notif.fish
-# Purpose: Adds `notif`, which announces the previous command's exit status via macOS notification and speech.
-# Usage: Append `; notif` after a command (for example `sleep 10; notif`) or pass custom text (`notif "build"`).
+# ~/.config/fish/functions/notif.fish
+# Purpose: Sends macOS notification/speech announcing previous command completion status.
+# Usage: Autoloaded on first use; append `; notif` after commands (for example `sleep 10; notif`).
 function notif --description 'Send macOS notification for previous command status'
     set -l exit_status $status
     set -l cmd "$argv"

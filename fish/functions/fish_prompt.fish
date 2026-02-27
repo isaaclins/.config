@@ -1,6 +1,6 @@
-# ~/.config/fish/conf.d/fish-prompt.fish
+# ~/.config/fish/functions/fish_prompt.fish
 # Purpose: Defines the custom two-line `fish_prompt` shown after each command.
-# Usage: Auto-loaded in new fish shells; run `source ~/.config/fish/conf.d/fish-prompt.fish` to reload only prompt changes.
+# Usage: Autoloaded by fish when rendering the prompt; run `functions -e fish_prompt` and `exec fish` to fully refresh if needed.
 function fish_prompt
     # Store early so later commands do not overwrite it.
     set -l last_status $status
@@ -60,3 +60,4 @@ function fish_prompt
     echo -n "⫸ "
     set_color normal
 end
+
