@@ -1,2 +1,3 @@
 # .config
-My handcrafted &amp; personal dotfiles. 
+
+My handcrafted &amp; personal dotfiles.

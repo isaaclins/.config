@@ -4,3 +4,4 @@ spicetify/Extensions
 **/node_modules
 pnpm/**
 !pnpm/.gitkeep
+fish/fish_variables
