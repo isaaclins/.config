@@ -1,0 +1,6 @@
+raycast
+spicetify/CustomApps
+spicetify/Extensions
+**/node_modules
+pnpm/**
+!pnpm/.gitkeep
