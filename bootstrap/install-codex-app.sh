@@ -8,9 +8,9 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$ROOT_DIR/bootstrap/common.sh"
 
 # ==== CHANGE THESE LINES IN EACH DUPLICATE ====
-SOFTWARE="example"     # command name to check (ex: "fnm", "zoxide", "pnpm")
-BREW_PACKAGE="example" # brew formula/cask to install (ex: "fnm", "zoxide", "pnpm")
-INSTALL_KIND="formula" # "formula" or "cask"
+SOFTWARE="codex-app")
+BREW_PACKAGE="codex-app")
+INSTALL_KIND="cask"
 # ===================================================
 
 bootstrap_install_and_record
