@@ -38,5 +38,5 @@ This will install Homebrew (if missing) and then run every
 
 ## Checks
 
-- `scripts/check.sh` runs `shellcheck` against `bootstrap/**/*.sh` (if `shellcheck`
-  is installed).
+- `scripts/check.sh` runs `shellcheck` against `bootstrap/**/*.sh` (if
+  `shellcheck` is installed).
