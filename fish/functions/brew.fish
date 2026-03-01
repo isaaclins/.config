@@ -15,7 +15,7 @@ function brew --description "brew wrapper with .versions tracking"
 
     set -l is_cask 0
     set -l pkgs
-    if test $should_track -eq 1
+    if test $should_track -eq 1; and test (count $argv) -gt 1
         for idx in (seq 2 (count $argv))
             set -l arg $argv[$idx]
             switch "$arg"
@@ -49,4 +49,3 @@ function brew --description "brew wrapper with .versions tracking"
 
     return $brew_status
 end
-
