@@ -1,0 +1,6 @@
+# Example only. Your real `hosts.yml` may include auth tokens depending on `gh` setup.
+github.com:
+  git_protocol: ssh
+  users:
+    your-username:
+  user: your-username
