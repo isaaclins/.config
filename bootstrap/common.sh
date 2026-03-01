@@ -4,8 +4,8 @@
 # Usage: Source this file from an install script, then call `bootstrap_install_and_record`.
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-VERSIONS_FILE="$ROOT_DIR/.versions"
+: "${ROOT_DIR:=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+: "${VERSIONS_FILE:=$ROOT_DIR/.versions}"
 
 upsert_version_line() {
   local key="$1"
@@ -72,4 +72,3 @@ bootstrap_install_and_record() {
     upsert_version_line "$label" "$version_line" "$VERSIONS_FILE"
   fi
 }
-

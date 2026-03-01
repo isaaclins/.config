@@ -8,33 +8,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BOOTSTRAP_DIR="$ROOT_DIR/bootstrap"
 VERSIONS_FILE="$ROOT_DIR/.versions"
 
-upsert_version_line() {
-  local key="$1"
-  local value="$2"
-  local file="$3"
-  local tmp
-  tmp="$(mktemp)"
-
-  touch "$file"
-  awk -v k="$key" -v v="$value" '
-    BEGIN { replaced=0 }
-    $0 ~ ("^" k ": ") {
-      if (!replaced) {
-        print k ": " v
-        replaced=1
-      }
-      next
-    }
-    { print }
-    END {
-      if (!replaced) {
-        print k ": " v
-      }
-    }
-  ' "$file" > "$tmp"
-
-  mv "$tmp" "$file"
-}
+source "$ROOT_DIR/bootstrap/common.sh"
 
 {
   echo "# generated on $(date '+%Y-%m-%d %H:%M:%S')"
