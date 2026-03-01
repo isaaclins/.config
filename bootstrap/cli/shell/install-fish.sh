@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# ~/.config/bootstrap/templates/install-template.sh
-# Purpose: Template installer. Duplicate to install-<software>.sh and change SOFTWARE/BREW_PACKAGE.
-# Usage: bash ~/.config/bootstrap/<category>/install-<software>.sh
+# ~/.config/bootstrap/cli/shell/install-fish.sh
+# Purpose: Installer for the fish shell.
+# Usage: bash ~/.config/bootstrap/cli/shell/install-fish.sh
 set -euo pipefail
 
 BOOTSTRAP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
