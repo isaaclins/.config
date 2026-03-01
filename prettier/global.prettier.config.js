@@ -14,7 +14,6 @@
 const config = {
   semi: true,
   singleQuote: false,
-  printWidth: 100,
   tabWidth: 2,
   trailingComma: "all",
 
@@ -22,14 +21,15 @@ const config = {
     {
       files: "*.md",
       options: {
-        proseWrap: "always",
-        printWidth: 80,
+        // Preserve author-provided line breaks in Markdown.
+        proseWrap: "preserve",
       },
     },
     {
       files: "*.mdx",
       options: {
-        proseWrap: "always",
+        // Preserve author-provided line breaks in MDX.
+        proseWrap: "preserve",
       },
     },
     {
@@ -40,8 +40,13 @@ const config = {
     },
     {
       files: "*.json",
+      options: {},
+    },
+    {
+      files: "*.html",
       options: {
-        printWidth: 80,
+        // Avoid wrapping attribute/text lines unless absolutely required by parser rules.
+        printWidth: 1000,
       },
     },
   ],
@@ -113,7 +118,11 @@ const codexFormatter = {
       ],
       fixTransforms: [
         // Conservative bracket auto-close; only appends at EOF and only for small mismatch counts.
-        { op: "closeOpenDelimiters", pairs: ["{}", "[]", "()"], maxAutoClose: 1 },
+        {
+          op: "closeOpenDelimiters",
+          pairs: ["{}", "[]", "()"],
+          maxAutoClose: 1,
+        },
         // Conservative semicolon fixer for non-comment, non-empty lines.
         {
           op: "appendSemicolons",
@@ -161,7 +170,13 @@ const codexFormatter = {
         { op: "regexReplace", find: "[ \\t]+$", replace: "", flags: "gm" },
         { op: "ensureFinalNewline" },
       ],
-      fixTransforms: [{ op: "closeOpenDelimiters", pairs: ["{}", "[]", "()"], maxAutoClose: 1 }],
+      fixTransforms: [
+        {
+          op: "closeOpenDelimiters",
+          pairs: ["{}", "[]", "()"],
+          maxAutoClose: 1,
+        },
+      ],
     },
 
     // Example for adding your own filetype quickly:
