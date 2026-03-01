@@ -18,3 +18,9 @@ SOFTWARE="hammerspoon"
 BREW_PACKAGE="hammerspoon"
 INSTALL_KIND="cask"
 bootstrap_install_and_record
+
+
+
+# post setup configuration so the directory is set up correctly:
+wdir="${HOME}/.config/hammerspoon"
+defaults write org.hammerspoon.Hammerspoon MJConfigFile "${wdir}/init.lua"
