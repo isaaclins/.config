@@ -256,19 +256,31 @@ function ensure(value, message) {
  * @returns {CodexFormatterConfig}
  */
 function validateFormatterConfig(raw) {
-  ensure(raw && typeof raw === "object", "`__codexFormatter` must be an object.");
+  ensure(
+    raw && typeof raw === "object",
+    "`__codexFormatter` must be an object.",
+  );
 
   /** @type {any} */
   const cfg = raw;
 
   ensure(cfg.version === 1, "`__codexFormatter.version` must be 1.");
-  ensure(cfg.output && typeof cfg.output === "object", "`__codexFormatter.output` is required.");
-  ensure(cfg.output.style === "prettier-write", "`output.style` must be `prettier-write`.");
+  ensure(
+    cfg.output && typeof cfg.output === "object",
+    "`__codexFormatter.output` is required.",
+  );
+  ensure(
+    cfg.output.style === "prettier-write",
+    "`output.style` must be `prettier-write`.",
+  );
   ensure(
     ["auto", "always", "never"].includes(cfg.output.colors),
     "`output.colors` must be auto|always|never.",
   );
-  ensure(Array.isArray(cfg.rules), "`__codexFormatter.rules` must be an array.");
+  ensure(
+    Array.isArray(cfg.rules),
+    "`__codexFormatter.rules` must be an array.",
+  );
 
   for (const rule of cfg.rules) {
     ensure(rule && typeof rule === "object", "Each rule must be an object.");
@@ -345,11 +357,15 @@ function validateFormatterConfig(raw) {
         }
         if (transform.maxAutoClose !== undefined) {
           ensure(
-            Number.isInteger(transform.maxAutoClose) && transform.maxAutoClose >= 0,
+            Number.isInteger(transform.maxAutoClose) &&
+              transform.maxAutoClose >= 0,
             `Rule \`${rule.name}\`: closeOpenDelimiters \`maxAutoClose\` must be integer >= 0.`,
           );
         }
-      } else if (transform.op === "normalizeNewlines" || transform.op === "ensureFinalNewline") {
+      } else if (
+        transform.op === "normalizeNewlines" ||
+        transform.op === "ensureFinalNewline"
+      ) {
         // No extra validation needed.
       } else {
         throw new ConfigError(
@@ -379,12 +395,16 @@ function compileRules(rules) {
  * @param {string} relPosixPath
  */
 function ruleMatches(compiledRule, relPosixPath) {
-  const included = compiledRule.includeMatchers.some((matcher) => matcher.test(relPosixPath));
+  const included = compiledRule.includeMatchers.some((matcher) =>
+    matcher.test(relPosixPath),
+  );
   if (!included) {
     return false;
   }
 
-  const excluded = compiledRule.excludeMatchers.some((matcher) => matcher.test(relPosixPath));
+  const excluded = compiledRule.excludeMatchers.some((matcher) =>
+    matcher.test(relPosixPath),
+  );
   return !excluded;
 }
 
@@ -416,7 +436,11 @@ function buildCodeFrame(source, line, column, useColor) {
       const safeColumn = Math.max(1, column || 1);
       const caretSpacing = " ".repeat(safeColumn - 1);
       const caret = colorize("^", "red", useColor);
-      const caretGutter = colorize(`${" ".repeat(numberWidth + 2)}|`, "dim", useColor);
+      const caretGutter = colorize(
+        `${" ".repeat(numberWidth + 2)}|`,
+        "dim",
+        useColor,
+      );
       rows.push(`${caretGutter} ${caretSpacing}${caret}`);
     }
   }
@@ -443,7 +467,12 @@ function printErrorBlock(filePath, error, useColor, source) {
     typeof maybeColumn === "number" &&
     typeof source === "string"
   ) {
-    const codeFrameRows = buildCodeFrame(source, maybeLine, maybeColumn, useColor);
+    const codeFrameRows = buildCodeFrame(
+      source,
+      maybeLine,
+      maybeColumn,
+      useColor,
+    );
     for (const row of codeFrameRows) {
       console.error(`${errorTag} ${row}`);
     }
@@ -501,7 +530,9 @@ function applyTransform(input, transform) {
     );
   }
 
-  throw new TransformError(`Unsupported transform op: ${/** @type {any} */ (transform).op}`);
+  throw new TransformError(
+    `Unsupported transform op: ${/** @type {any} */ (transform).op}`,
+  );
 }
 
 /**
@@ -713,7 +744,9 @@ function appendSemicolonsConservative(input, linePattern, skipIfEndsWith) {
     }
 
     const trailingWhitespaceMatch = line.match(/[ \t]*$/);
-    const trailingWhitespace = trailingWhitespaceMatch ? trailingWhitespaceMatch[0] : "";
+    const trailingWhitespace = trailingWhitespaceMatch
+      ? trailingWhitespaceMatch[0]
+      : "";
     const core = line.slice(0, line.length - trailingWhitespace.length);
 
     if (!core) {
@@ -791,7 +824,9 @@ async function main() {
   // Support both CJS export object and transpiled/default export object patterns.
   const loadedConfig = require(absoluteConfigPath);
   const prettierConfig =
-    loadedConfig && typeof loadedConfig === "object" && "default" in loadedConfig
+    loadedConfig &&
+    typeof loadedConfig === "object" &&
+    "default" in loadedConfig
       ? loadedConfig.default
       : loadedConfig;
 
@@ -825,7 +860,9 @@ async function main() {
       continue;
     }
 
-    const relPath = toPosixPath(path.relative(cwd, absolutePath) || path.basename(absolutePath));
+    const relPath = toPosixPath(
+      path.relative(cwd, absolutePath) || path.basename(absolutePath),
+    );
     files.push({ absPath: absolutePath, relPath });
   }
 
@@ -834,7 +871,9 @@ async function main() {
   let hadFailures = false;
 
   for (const file of files) {
-    const matchingRules = compiledRules.filter((rule) => ruleMatches(rule, file.relPath));
+    const matchingRules = compiledRules.filter((rule) =>
+      ruleMatches(rule, file.relPath),
+    );
     if (matchingRules.length === 0) {
       continue;
     }
@@ -895,7 +934,9 @@ main().catch((error) => {
   const mode = process.argv.includes("--color-mode")
     ? parseCli(process.argv.slice(2))["--color-mode"] || "auto"
     : "auto";
-  const useColor = shouldUseColor(/** @type {"auto"|"always"|"never"} */ (mode));
+  const useColor = shouldUseColor(
+    /** @type {"auto"|"always"|"never"} */ (mode),
+  );
 
   printErrorBlock("config", runtimeError, useColor);
   process.exit(1);
