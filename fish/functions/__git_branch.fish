@@ -15,4 +15,3 @@ function __git_branch --description 'Get git branch if inside repo'
     set -l commit (command git rev-parse --short HEAD 2>/dev/null)
     test -n "$commit"; and echo "@$commit"
 end
-

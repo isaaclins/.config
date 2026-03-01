@@ -9,4 +9,3 @@ if status is-interactive
         set -gx PATH "$PNPM_HOME" $PATH
     end
 end
-

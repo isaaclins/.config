@@ -22,4 +22,3 @@ function notif --description 'Send macOS notification for previous command statu
     echo $message
     return $exit_status
 end
-

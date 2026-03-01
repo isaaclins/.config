@@ -30,4 +30,3 @@ function __versions_upsert --description "Upsert KEY: VALUE in ~/.config/.versio
 
     command mv "$tmp" "$versions_file"
 end
-

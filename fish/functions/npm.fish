@@ -88,4 +88,3 @@ function npm --description "Redirect npm to pnpm"
     end
     return 127
 end
-

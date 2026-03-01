@@ -9,4 +9,3 @@ function reload_fish --description 'Reload fish conf.d and config.fish'
     source ~/.config/fish/config.fish
     echo "Fish config reloaded (conf.d + config.fish)."
 end
-

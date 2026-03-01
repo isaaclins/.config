@@ -161,9 +161,7 @@ const codexFormatter = {
         { op: "regexReplace", find: "[ \\t]+$", replace: "", flags: "gm" },
         { op: "ensureFinalNewline" },
       ],
-      fixTransforms: [
-        { op: "closeOpenDelimiters", pairs: ["{}", "[]", "()"], maxAutoClose: 1 },
-      ],
+      fixTransforms: [{ op: "closeOpenDelimiters", pairs: ["{}", "[]", "()"], maxAutoClose: 1 }],
     },
 
     // Example for adding your own filetype quickly:

@@ -26,4 +26,3 @@ function __brew_record_version --description "Record brew package version into ~
         __versions_upsert "$key" "$version_line"
     end
 end
-
