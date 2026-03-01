@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ~/.config/bootstrap.sh
-# Purpose: Ensures Homebrew exists, records its version, then runs every install-*.sh in ~/.config/bootstrap.
+# Purpose: Ensures Homebrew exists, records its version, then runs every install-*.sh under ~/.config/bootstrap.
 # Usage: bash ~/.config/bootstrap.sh
 set -euo pipefail
 
@@ -23,8 +23,10 @@ if command -v brew >/dev/null 2>&1; then
   upsert_version_line "HOMEBREW" "$(brew --version | head -n1)" "$VERSIONS_FILE"
 fi
 
-shopt -s nullglob
-scripts=("$BOOTSTRAP_DIR"/install-*.sh)
+scripts=()
+while IFS= read -r script; do
+  scripts+=("$script")
+done < <(find "$BOOTSTRAP_DIR" -type f -name 'install-*.sh' | LC_ALL=C sort)
 
 if ((${#scripts[@]} == 0)); then
   echo "No install scripts found in $BOOTSTRAP_DIR"
@@ -33,7 +35,7 @@ fi
 
 for script in "${scripts[@]}"; do
   [[ "$(basename "$script")" == "install-template.sh" ]] && continue
-  echo "==> Running $(basename "$script")"
+  echo "==> Running ${script#"$ROOT_DIR"/}"
   bash "$script"
 done
 

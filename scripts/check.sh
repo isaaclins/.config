@@ -9,4 +9,5 @@ if ! command -v shellcheck >/dev/null 2>&1; then
   exit 1
 fi
 
-shellcheck "$ROOT_DIR"/bootstrap.sh "$ROOT_DIR"/bootstrap/*.sh
+shellcheck "$ROOT_DIR"/bootstrap.sh
+find "$ROOT_DIR"/bootstrap -type f -name '*.sh' -print0 | xargs -0 shellcheck
