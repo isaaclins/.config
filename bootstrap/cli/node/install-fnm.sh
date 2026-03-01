@@ -19,3 +19,8 @@ BREW_PACKAGE="fnm"
 INSTALL_KIND="formula"
 
 bootstrap_install_and_record
+
+# post install command to install the LTS version of Node.js
+if ! command -v node >/dev/null 2>&1; then
+  fnm install --lts >/dev/null 2>&1
+fi
