@@ -44,14 +44,20 @@ function fish_prompt
 
     # Last command duration (CMD_DURATION is already milliseconds)
     echo -n "─["
+    set_color -o white
     printf "%dms" $CMD_DURATION
+    set_color -o cyan
     echo -n "]"
 
     # Error code if non-zero
     if test $last_status -ne 0
-        set_color -o red
-        echo -n "─[Error: $last_status]"
         set_color -o cyan
+        echo -n "─["
+        set_color -o red
+        echo -n $last_status
+        set_color -o cyan
+        echo -n "]"
+        set_color normal
     end
 
     echo
