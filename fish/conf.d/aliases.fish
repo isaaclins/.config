@@ -6,3 +6,5 @@ abbr -a r 'clear && exec fish && clear'
 abbr -a cls 'clear && clear'
 
 abbr -a fmt "prettier . --write"
+
+abbr -a code "open -a codex "
