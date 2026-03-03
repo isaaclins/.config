@@ -9,3 +9,4 @@ fish/fish_variables
 gh/hosts.yml
 spicetify/config-xpui.ini
 **.DS_Store
+wireshark
