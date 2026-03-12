@@ -1,0 +1,169 @@
+{
+  "logo": {
+    "type": "command-raw",
+    "source": "ascii-image-converter ~/.config/fastfetch/barbhut.png --dimensions 40,20 --color -m ' barbhut' -c "
+  },
+  "display": {
+    "separator": " ",
+    "key": {
+      "width": 25
+    },
+    "bar": {
+      "border": null,
+      "char": {
+        "elapsed": "█",
+        "total": "░"
+      },
+      "width": 10
+    },
+    "constants": [
+      "\u001b[0m                                                       \u001b[55D"
+    ]
+  },
+  "modules": [
+    {
+      "type": "custom",
+      "format": "\u001b[34m╭──────────────────────── Host ────────────────────────╮\u001b[0m"
+    },
+    {
+      "type": "title",
+      "key": "{$1}\u001b[34m  USERNAME\u001b[0m",
+      "format": "{user-name}"
+    },
+    {
+      "type": "localip",
+      "key": "{$1}\u001b[34m  HOST IP\u001b[0m",
+      "format": "                      {ipv4}",
+      "showIpv4": true,
+      "showIpv6": false,
+      "showPrefixLen": false,
+      "showMac": false,
+      "defaultRouteOnly": true,
+      "compact": true
+    },
+    {
+      "type": "custom",
+      "format": "\u001b[34m╰──────────────────────────────────────────────────────╯\u001b[0m"
+    },
+    "break",
+    {
+      "type": "custom",
+      "format": "\u001b[32m╭────────────────────── Hardware ──────────────────────╮\u001b[0m"
+    },
+    {
+      "type": "cpuusage",
+      "key": "{$1}\u001b[32m CPU\u001b[0m",
+      "format": "                    {avg-bar}",
+      "percent": {
+        "type": ["bar"],
+        "green": 30,
+        "yellow": 70
+      }
+    },
+    {
+      "type": "cpuusage",
+      "key": "{$1}\u001b[32m    > USAGE\u001b[0m",
+      "format": "                         [{avg}]"
+    },
+    {
+      "type": "memory",
+      "key": "{$1}\u001b[32m MEMORY\u001b[0m",
+      "format": "                    {percentage-bar}",
+      "percent": {
+        "type": ["bar"],
+        "green": 30,
+        "yellow": 70
+      }
+    },
+    {
+      "type": "memory",
+      "key": "{$1}\u001b[32m    > USAGE\u001b[0m",
+      "format": "{used} / {total}    [{percentage}]"
+    },
+    {
+      "type": "command",
+      "key": "{$1}\u001b[32m BATTERY\u001b[0m",
+      "shell": "/bin/sh",
+      "param": "-c",
+      "text": "perc=$(pmset -g batt | grep -Eo '[0-9]+%' | head -n1 | tr -d '%'); [ -n \"$perc\" ] || perc=0; python3 -c \"import math; width=10; perc=$perc; filled=int(round(width*perc/100)); filled=max(0, min(width, filled)); bar='░'*(width-filled)+'█'*filled; print(bar, end='')\" | rev",
+      "format": "{$1}\u001b[32m                    {result} \u001b[0m"
+    },
+    {
+      "type": "battery",
+      "key": "{$1}\u001b[32m    > USAGE\u001b[0m",
+      "format": "[{status}]            [{capacity}]{?status}{?}"
+    },
+    {
+      "type": "disk",
+      "key": "{$1}\u001b[32m DISKSPACE\u001b[0m",
+      "format": "{size-used} / {size-total}  [{size-percentage}]",
+      "folders": "/"
+    },
+    {
+      "type": "custom",
+      "format": "\u001b[32m╰──────────────────────────────────────────────────────╯\u001b[0m"
+    },
+    "break",
+    {
+      "type": "custom",
+      "format": "\u001b[35m╭────────────────────── Software ──────────────────────╮\u001b[0m"
+    },
+    {
+      "type": "os",
+      "key": "{$1}\u001b[35m OS\u001b[0m",
+      "format": "{name}{?codename} {codename}{?} ({version})"
+    },
+    {
+      "type": "command",
+      "key": "{$1}\u001b[35m TERMINAL\u001b[0m",
+      "shell": "/bin/sh",
+      "param": "-c",
+      "text": "term=${TERM_PROGRAM:-${TERM:-unknown}}; shell=$(basename \"$SHELL\" 2>/dev/null || echo shell); printf '%s / %s' \"$term\" \"$shell\"",
+      "format": "{result}"
+    },
+    {
+      "type": "title",
+      "key": "{$1}\u001b[35m SHELL DIRECTORY\u001b[0m",
+      "format": "{user-shell} "
+    },
+    {
+      "type": "packages",
+      "key": "{$1}\u001b[35m BREW\u001b[0m",
+      "format": "{brew-all} pkgs",
+      "combined": true
+    },
+    {
+      "type": "media",
+      "key": "{$1}\u001b[35m LISTENING TO\u001b[0m",
+      "format": "{?combined}{combined}{?}{/combined}<media>{/}"
+    },
+    {
+      "type": "sound",
+      "key": "{$1}\u001b[35m SOUND OUTPUT/VOLUME\u001b[0m",
+      "soundType": "main",
+      "format": "{name}{?volume-percentage}  /  [{volume-percentage}]{?}"
+    },
+    {
+      "type": "uptime",
+      "key": "{$1}\u001b[35m UPTIME\u001b[0m",
+      "format": "{days} days, {hours} hours and {minutes} minutes"
+    },
+    {
+      "type": "custom",
+      "format": "\u001b[35m╰──────────────────────────────────────────────────────╯\u001b[0m"
+    },
+    "break",
+    {
+      "type": "custom",
+      "format": "\u001b[35m╭───────────────────── SIGNATURE ─────────────────────╮\u001b[0m"
+    },
+    {
+      "type": "custom",
+      "format": "                       ~ ⋖,^><"
+    },
+    {
+      "type": "custom",
+      "format": "\u001b[35m╰─────────────────────────────────────────────────────╯\u001b[0m"
+    }
+  ]
+}

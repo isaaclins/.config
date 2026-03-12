@@ -22,7 +22,7 @@ PASSWORD_LENGTH=24
 # - `ALLOWED_LETTERS` should contain only letters (A-Z, a-z).
 # - `ALLOWED_SPECIAL` may contain any printable ASCII characters (no spaces/newlines).
 ALLOWED_LETTERS='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
-ALLOWED_SPECIAL='!@#$%^&*()_+{}:,./?'
+ALLOWED_SPECIAL='!@#$%*/?+-=0123456789'
 
 PASTE_DELAY_SECONDS=0.35
 
