@@ -6,6 +6,7 @@ pnpm/**
 !pnpm/.gitkeep
 fish/fish_variables
 .versions
+.java-default
 gh/hosts.yml
 spicetify/config-xpui.ini
 **.DS_Store
