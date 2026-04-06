@@ -3303,29 +3303,20 @@ enquiry-response =
 # client-side to the current version.
 
 #
-
 # Valid values are:
-
 #
-
 # \* `off` - Disable auto-updates.
-
 # \* `check` - Check for updates and notify the user if an update is
-
 # available, but do not automatically download or install the update.
-
 # \* `download` - Check for updates, automatically download the update,
-
 # notify the user, but do not automatically install the update.
-
 #
-
 # The default value is `check`.
-
 #
-
 # Changing this value at runtime works after a small delay.
 
 auto-update = check
 
-
+# CUSTOM:
+command = /opt/homebrew/bin/fish
+# default shell to fish, but only on ghostty

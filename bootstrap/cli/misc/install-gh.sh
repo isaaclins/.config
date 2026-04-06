@@ -15,8 +15,8 @@ done
 source "$BOOTSTRAP_DIR/common.sh"
 
 # ==== CHANGE THESE LINES IN EACH DUPLICATE ====
-SOFTWARE="TheZoraiz/ascii-image-converter/ascii-image-converter"
-BREW_PACKAGE="TheZoraiz/ascii-image-converter/ascii-image-converter"
+SOFTWARE="gh"
+BREW_PACKAGE="gh"
 INSTALL_KIND="formula"
 # ===================================================
 

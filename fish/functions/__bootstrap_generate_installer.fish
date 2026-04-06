@@ -36,9 +36,9 @@ function __bootstrap_generate_installer --description "Generate install-<pkg>.sh
 
     set -l sed_pkg (string replace -a '&' '\&' -- "$pkg")
     set -l sed_kind (string replace -a '&' '\&' -- "$install_kind")
-    command sed -i '' -e "s#^SOFTWARE=\".*\"#SOFTWARE=\"$sed_pkg\"#" "$target"
-    command sed -i '' -e "s#^BREW_PACKAGE=\".*\"#BREW_PACKAGE=\"$sed_pkg\"#" "$target"
-    command sed -i '' -e "s#^INSTALL_KIND=\".*\"#INSTALL_KIND=\"$sed_kind\"#" "$target"
+    command sed -i '' -e "s#^SOFTWARE=.*#SOFTWARE=\"$sed_pkg\"#" "$target"
+    command sed -i '' -e "s#^BREW_PACKAGE=.*#BREW_PACKAGE=\"$sed_pkg\"#" "$target"
+    command sed -i '' -e "s#^INSTALL_KIND=.*#INSTALL_KIND=\"$sed_kind\"#" "$target"
     command chmod +x "$target"
 
     __bootstrap_commit_and_push_file "$target" "$pkg"

@@ -15,8 +15,8 @@ done
 source "$BOOTSTRAP_DIR/common.sh"
 
 # ==== CHANGE THESE LINES IN EACH DUPLICATE ====
-SOFTWARE="microsoft-outlook")
-BREW_PACKAGE="microsoft-outlook")
+SOFTWARE="microsoft-outlook"
+BREW_PACKAGE="microsoft-outlook"
 INSTALL_KIND="cask"
 # ===================================================
 

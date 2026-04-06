@@ -15,8 +15,8 @@ done
 source "$BOOTSTRAP_DIR/common.sh"
 
 # ==== CHANGE THESE LINES IN EACH DUPLICATE ====
-SOFTWARE="btop")
-BREW_PACKAGE="btop")
+SOFTWARE="btop"
+BREW_PACKAGE="btop"
 INSTALL_KIND="formula"
 # ===================================================
 

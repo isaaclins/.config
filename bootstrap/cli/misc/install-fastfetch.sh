@@ -15,8 +15,8 @@ done
 source "$BOOTSTRAP_DIR/common.sh"
 
 # ==== CHANGE THESE LINES IN EACH DUPLICATE ====
-SOFTWARE="fastfetch")
-BREW_PACKAGE="fastfetch")
+SOFTWARE="fastfetch"
+BREW_PACKAGE="fastfetch"
 INSTALL_KIND="formula"
 # ===================================================
 
