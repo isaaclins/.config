@@ -17,7 +17,12 @@
 		"mute_on_join": true,
 	},
 	"edit_predictions": {
-		"provider": "copilot",
+		"ollama": {
+   "max_output_tokens": 128,
+   "prompt_format": "code_llama",
+   "model": "gemma4:31b"
+  },
+  "provider": "ollama",
 	},
 	"collaboration_panel": {
 		"button": true,
@@ -139,7 +144,9 @@
 	"when_closing_with_no_tabs": "close_window",
 	"proxy": "",
 	"agent": {
-		"inline_assistant_model": {
+		"play_sound_when_agent_done": "always",
+  "notify_when_agent_waiting": "all_screens",
+  "inline_assistant_model": {
 			"provider": "copilot_chat",
 			"model": "gpt-5-mini",
 			"enable_thinking": false,

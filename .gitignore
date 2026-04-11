@@ -13,3 +13,6 @@ spicetify/config-xpui.ini
 wireshark
 raycast/Raycast 2026-03-01 01.42.34.rayconfig
 raycast/config.json
+github-copilot/apps.json
+zed/prompts/prompts-library-db.0.mdb/data.mdb
+zed/prompts/prompts-library-db.0.mdb/lock.mdb
