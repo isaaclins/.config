@@ -9,7 +9,6 @@ function __formatter_run_text_rules --description "Run config-driven text transf
     set -l fix_enabled $argv[2]
     set -l color_mode $argv[3]
     set -l candidate_files $argv[4..-1]
-
     if test (count $candidate_files) -eq 0
         return 0
     end
