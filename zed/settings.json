@@ -28,8 +28,9 @@
 		"button": true,
 	},
 	"git_panel": {
-		"dock": "right",
+		"dock": "left",
 		"button": false,
+		"tree_view": true,
 	},
 	"zoomed_padding": true,
 	"use_system_window_tabs": false,
