@@ -6,20 +6,149 @@
 // To see the default key bindings run `zed: open default keymap`
 // from the command palette.
 [
+	// --- Meta / navigation ---
 	{
 		"bindings": {
 			"cmd-.": "zed::OpenKeymapFile",
+			"cmd-p": "command_palette::Toggle",
+			"cmd-4": "zed::Extensions",
+			"cmd-t": "zed::OpenTasks",
+			"cmd-k": "pane::DeploySearch",
+		},
+	},
+	// --- Editor (workspace-wide) ---
+	{
+		"bindings": {
 			"cmd-s": "editor::Format",
 			"alt-w": "editor::ToggleSoftWrap",
+		},
+	},
+	// --- Panel focus ---
+	{
+		"bindings": {
 			"cmd-1": "project_panel::ToggleFocus",
 			"cmd-2": "project_search::ToggleFocus",
 			"cmd-3": "git_panel::ToggleFocus",
+		},
+	},
+	// --- Agent / AI ---
+	{
+		"bindings": {
 			"cmd-i": "agent::Toggle",
-			"cmd-shift-i": "multi_workspace::ToggleWorkspaceSidebar",
-			"cmd-shift-j": "workspace::NewTerminal",
-			"cmd-4": "zed::Extensions",
-			"cmd-p": "command_palette::Toggle",
 			"cmd-y": "agent::AllowAlways",
+		},
+	},
+	// --- Workspace UI ---
+	{
+		"bindings": {
+			"cmd-r": "multi_workspace::ToggleWorkspaceSidebar",
+		},
+	},
+	// --- Terminal ---
+	{
+		"bindings": {
+			"cmd-shift-j": "workspace::NewTerminal",
+		},
+	},
+	// --- Git panel ---
+	{
+		"context": "GitPanel",
+		"use_key_equivalents": true,
+		"bindings": {
+			"cmd-shift-enter": "git::Push",
+		},
+	},
+	// --- Project search navigation ---
+	{
+		"context": "Pane",
+		"bindings": {
+			"alt-down": "search::SelectNextMatch",
+			"alt-up": "search::SelectPreviousMatch",
+		},
+	},
+	{
+		"context": "ProjectSearchBar",
+		"bindings": {
+			"alt-down": "search::SelectNextMatch",
+			"alt-up": "search::SelectPreviousMatch",
+		},
+	},
+	// --- Editor ---
+	{
+		"context": "Editor",
+		"use_key_equivalents": true,
+		"bindings": {
+			// Cancel & basic typing
+			"escape": "editor::Cancel",
+			"shift-backspace": "editor::Backspace",
+			"backspace": "editor::Backspace",
+			"delete": "editor::Delete",
+			"tab": "editor::Tab",
+			"shift-tab": "editor::Backtab",
+			"cmd-backspace": "editor::DeleteToBeginningOfLine",
+			"cmd-delete": "editor::DeleteToEndOfLine",
+			"alt-backspace": [
+				"editor::DeleteToPreviousWordStart",
+				{ "ignore_newlines": false, "ignore_brackets": false },
+			],
+			"alt-delete": [
+				"editor::DeleteToNextWordEnd",
+				{ "ignore_newlines": false, "ignore_brackets": false },
+			],
+			// Clipboard & history
+			"cmd-x": "editor::Cut",
+			"cmd-c": "editor::Copy",
+			"cmd-v": "editor::Paste",
+			"cmd-z": "editor::Undo",
+			"cmd-shift-z": "editor::Redo",
+			// Movement: arrows, page, paragraph
+			"up": "editor::MoveUp",
+			"down": "editor::MoveDown",
+			"left": "editor::MoveLeft",
+			"right": "editor::MoveRight",
+			"alt-left": "editor::MoveToPreviousWordStart",
+			"alt-right": "editor::MoveToNextWordEnd",
+			// Multi-cursor
+			"alt-shift-up": "editor::AddSelectionAbove",
+			"alt-shift-down": "editor::AddSelectionBelow",
+			// Selection
+			"shift-up": "editor::SelectUp",
+			"shift-down": "editor::SelectDown",
+			"shift-left": "editor::SelectLeft",
+			"shift-right": "editor::SelectRight",
+			"alt-shift-left": "editor::SelectToPreviousWordStart", // cursorWordLeftSelect
+			"alt-shift-right": "editor::SelectToNextWordEnd", // cursorWordRightSelect
+			"cmd-shift-up": "editor::SelectToBeginning",
+			"cmd-shift-down": "editor::SelectToEnd",
+			"cmd-a": "editor::SelectAll",
+			"cmd-l": "editor::SelectLine",
+			"cmd-shift-left": [
+				"editor::SelectToBeginningOfLine",
+				{ "stop_at_soft_wraps": true, "stop_at_indent": true },
+			],
+			"ctrl-shift-a": [
+				"editor::SelectToBeginningOfLine",
+				{ "stop_at_soft_wraps": true, "stop_at_indent": true },
+			],
+			"cmd-shift-right": [
+				"editor::SelectToEndOfLine",
+				{ "stop_at_soft_wraps": true },
+			],
+		},
+	},
+	// Agent chat: cycle session mode (after global Editor so this wins in agent input)
+	{
+		"context": "AgentPanel",
+		"use_key_equivalents": true,
+		"bindings": {
+			"shift-tab": "agent::CycleModeSelector",
+		},
+	},
+	{
+		"context": "AcpThread > Editor",
+		"use_key_equivalents": true,
+		"bindings": {
+			"shift-tab": "agent::CycleModeSelector",
 		},
 	},
 ]
