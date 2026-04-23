@@ -133,8 +133,8 @@
 	"cursor_blink": false,
 	"text_rendering_mode": "platform_default",
 	"icon_theme": {
-		"mode": "system",
-		"light": "Colored Zed Icons Theme Dark",
+		"mode": "light",
+		"light": "Colored Zed Icons Theme Light",
 		"dark": "Colored Zed Icons Theme Dark",
 	},
 	"ui_font_family": ".ZedMono",
@@ -194,7 +194,7 @@
 			},
 		},
 		"dock": "right", // all projects oversight
-		"sidebar_side": "left", // AI Sidebar agent
+		"sidebar_side": "right", // AI Sidebar agent
 		"favorite_models": [],
 		"model_parameters": [],
 		"thinking_display": "auto",
@@ -213,11 +213,24 @@
 			"type": "registry",
 		},
 		"github-copilot-cli": {
-			"type": "registry",
+			"favorite_config_option_values": {
+    "reasoning_effort": [
+     "high"
+    ],
+    "model": [
+     "gpt-5.3-codex"
+    ]
+   },
+   "type": "registry",
 		},
 		"cursor": {
 			"favorite_config_option_values": {
-				"mode": ["agent", "plan"],
+				"model": [
+     "claude-opus-4-7[thinking=true,context=200k,effort=high]",
+     "default[]",
+     "composer-2[fast=true]"
+    ],
+    "mode": ["agent", "plan"],
 			},
 			"default_config_options": {
 				"mode": "agent",
@@ -231,8 +244,8 @@
 	"ui_font_size": 16,
 	"buffer_font_size": 13.0,
 	"theme": {
-		"mode": "system",
+		"mode": "dark",
 		"light": "One Light",
-		"dark": "Transparent Prism",
+		"dark": "Ayu Dark",
 	},
 }
