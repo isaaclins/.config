@@ -2,9 +2,9 @@
 # Purpose: Interactive shell bootstrap for session-only behavior.
 # Usage: Auto-loaded by fish at startup; edit values here, then run `exec fish` to fully reload.
 if status is-interactive
-    # Auto-jump to ~/github if starting in $HOME
-    if test (pwd) = $HOME
-        cd ~/github
+    # Auto-jump to projects directory if starting in $HOME
+    if test (pwd) = $HOME && test -d ~/Projects/
+        cd ~/Projects/
     end
 end
 fish_add_path $HOME/.local/bin

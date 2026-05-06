@@ -10,6 +10,8 @@
 	{
 		"bindings": {
 			"cmd-.": "zed::OpenKeymapFile",
+			"cmd-;": "zed::OpenSettingsFile", // "shift + ," = open settings
+			"cmd-,": "zed::OpenSettings",
 			"cmd-p": "command_palette::Toggle",
 			"cmd-4": "zed::Extensions",
 			"cmd-t": "zed::OpenTasks",

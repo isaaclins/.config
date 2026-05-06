@@ -7,6 +7,106 @@
 local cycleIndex = 1
 local hasCycled = false
 
+-- Smooth motion: custom easing + stepped frames (avoids stacking hs.window timed animations)
+local animationDuration = 0.42
+local tweenFps = 60
+local tweenTimer = nil
+
+local function roundRect(r)
+    return {
+        x = math.floor(r.x + 0.5),
+        y = math.floor(r.y + 0.5),
+        w = math.max(1, math.floor(r.w + 0.5)),
+        h = math.max(1, math.floor(r.h + 0.5)),
+    }
+end
+
+-- Smoothstep-style ease (pleasant start/stop, no harsh linear motion)
+local function easeInOutCubic(t)
+    if t < 0.5 then
+        return 4 * t * t * t
+    end
+    return 1 - ((-2 * t + 2) ^ 3) / 2
+end
+
+local function stopActiveTween()
+    if tweenTimer then
+        tweenTimer:stop()
+        tweenTimer = nil
+    end
+end
+
+-- hs.window:isValid() is not available in all Hammerspoon builds; frame() fails safely via pcall.
+local function windowAlive(w)
+    if not w then
+        return false
+    end
+    local ok = pcall(function()
+        w:frame()
+    end)
+    return ok
+end
+
+--- Interpolate focused window to target using short duration-0 frames (one animation at a time).
+local function animateWindowTo(win, targetFrame, duration)
+    if not win then
+        return
+    end
+    if duration == nil then
+        duration = animationDuration
+    end
+    if duration <= 0 then
+        stopActiveTween()
+        win:setFrame(roundRect(targetFrame), 0)
+        return
+    end
+
+    targetFrame = roundRect(targetFrame)
+    stopActiveTween()
+
+    local startFrame = roundRect(win:frame())
+    local dx = targetFrame.x - startFrame.x
+    local dy = targetFrame.y - startFrame.y
+    local dw = targetFrame.w - startFrame.w
+    local dh = targetFrame.h - startFrame.h
+
+    if math.abs(dx) < 0.5 and math.abs(dy) < 0.5 and math.abs(dw) < 0.5 and math.abs(dh) < 0.5 then
+        win:setFrame(targetFrame, 0)
+        return
+    end
+
+    local startTime = hs.timer.secondsSinceEpoch()
+    local interval = 1 / tweenFps
+
+    local function tick()
+        if not windowAlive(win) then
+            stopActiveTween()
+            return
+        end
+
+        local elapsed = hs.timer.secondsSinceEpoch() - startTime
+        local t = math.min(1, elapsed / duration)
+        local e = easeInOutCubic(t)
+
+        local nf = roundRect({
+            x = startFrame.x + dx * e,
+            y = startFrame.y + dy * e,
+            w = startFrame.w + dw * e,
+            h = startFrame.h + dh * e,
+        })
+
+        win:setFrame(nf, 0)
+
+        if t >= 1 then
+            stopActiveTween()
+            win:setFrame(targetFrame, 0)
+        end
+    end
+
+    tick()
+    tweenTimer = hs.timer.doEvery(interval, tick)
+end
+
 -- Helper to check if window is roughly at a frame
 local function isAtFrame(winFrame, targetFrame)
     return math.abs(winFrame.x - targetFrame.x) < 20 and
@@ -15,13 +115,9 @@ local function isAtFrame(winFrame, targetFrame)
            math.abs(winFrame.h - targetFrame.h) < 20
 end
 
--- Animation settings
-local animationDuration = 0.2 -- Smooth animation
-hs.window.animationDuration = animationDuration
-
--- Get the usable screen frame (accounts for menu bar, dock, etc.)
+-- Visible usable rect for this screen (menu bar, Dock, etc. excluded vs fullFrame)
 local function getUsableFrame(screen)
-    return screen:frame() -- Use full frame for all positioning
+    return screen:frame()
 end
 
 local cornerPositions = {
@@ -67,63 +163,17 @@ local cornerPositions = {
     end
 }
 
--- Helper to check if app is Zen browser (needs special handling)
-local function isZenBrowser(win)
-    return win:application():name() == "Zen"
-end
-
--- Cooldown to prevent commands from overlapping (Zen needs time to process)
--- Note: Zen browser has positioning bugs - commands need proper spacing
-local lastCommandTime = 0
-local commandCooldown = 0.3 -- seconds - increased because Zen is slow
-
--- Use AppleScript for Zen browser (it's buggy with normal methods)
-local function moveZenWithAppleScript(bounds)
-    -- Round all values to integers for AppleScript
-    local x = math.floor(bounds.x + 0.5)
-    local y = math.floor(bounds.y + 0.5)
-    local w = math.floor(bounds.w + 0.5)
-    local h = math.floor(bounds.h + 0.5)
-
-    local script = string.format([[
-        tell application "System Events"
-            tell process "Zen"
-                set frontmost to true
-                set position of window 1 to {%d, %d}
-                set size of window 1 to {%d, %d}
-            end tell
-        end tell
-    ]], x, y, w, h)
-
-    hs.osascript.applescript(script)
-end
-
 local function moveWindow(direction, duration)
-    duration = duration or animationDuration
+    if duration == nil then
+        duration = animationDuration
+    end
     local win = hs.window.focusedWindow()
     if not win then return end
-
-    -- For Zen browser, enforce cooldown to prevent overlapping commands
-    if isZenBrowser(win) then
-        local now = hs.timer.secondsSinceEpoch()
-        local timeSinceLastCommand = now - lastCommandTime
-        if timeSinceLastCommand < commandCooldown then
-            print("Zen: Command ignored - too soon after previous command (wait " ..
-                string.format("%.2f", commandCooldown - timeSinceLastCommand) .. "s)")
-            return
-        end
-        lastCommandTime = now
-    end
 
     local screen = win:screen()
     local f = getUsableFrame(screen)
 
-    -- Debug: print what we're trying to do
-    local appName = win:application():name()
-    local useAppleScript = isZenBrowser(win)
-
     if direction == "left" then
-        -- Left half
         local newFrame = { x = f.x, y = f.y, w = f.w / 2, h = f.h }
 
         if isAtFrame(win:frame(), newFrame) then
@@ -131,29 +181,12 @@ local function moveWindow(direction, duration)
             if nextScreen then
                 screen = nextScreen
                 f = getUsableFrame(screen)
-                -- When moving left to a new screen, we want to land on the RIGHT side of that screen first
                 newFrame = { x = f.x + f.w / 2, y = f.y, w = f.w / 2, h = f.h }
             end
         end
 
-        print(string.format("%s: Moving left to x=%.0f, y=%.0f, w=%.0f, h=%.0f", appName, newFrame.x, newFrame.y,
-            newFrame.w, newFrame.h))
-
-        if useAppleScript then
-            moveZenWithAppleScript(newFrame)
-            hs.timer.doAfter(0.1, function()
-                local actual = win:frame()
-                print(string.format("%s: AppleScript result - at x=%.0f, y=%.0f, w=%.0f, h=%.0f", appName, actual.x,
-                    actual.y, actual.w, actual.h))
-            end)
-        else
-            win:setFrame(newFrame, duration)
-            local actual = win:frame()
-            print(string.format("%s: Actually moved to x=%.0f, y=%.0f, w=%.0f, h=%.0f", appName, actual.x, actual.y,
-                actual.w, actual.h))
-        end
+        animateWindowTo(win, newFrame, duration)
     elseif direction == "right" then
-        -- Right half
         local newFrame = { x = f.x + f.w / 2, y = f.y, w = f.w / 2, h = f.h }
 
         if isAtFrame(win:frame(), newFrame) then
@@ -161,30 +194,16 @@ local function moveWindow(direction, duration)
             if nextScreen then
                 screen = nextScreen
                 f = getUsableFrame(screen)
-                -- When moving right to a new screen, we want to land on the LEFT side of that screen first
                 newFrame = { x = f.x, y = f.y, w = f.w / 2, h = f.h }
             end
         end
 
-        print(string.format("%s: Moving right to x=%.0f, y=%.0f, w=%.0f, h=%.0f", appName, newFrame.x, newFrame.y,
-            newFrame.w, newFrame.h))
-
-        if useAppleScript then
-            moveZenWithAppleScript(newFrame)
-            hs.timer.doAfter(0.1, function()
-                local actual = win:frame()
-                print(string.format("%s: AppleScript result - at x=%.0f, y=%.0f, w=%.0f, h=%.0f", appName, actual.x,
-                    actual.y, actual.w, actual.h))
-            end)
-        else
-            win:setFrame(newFrame, duration)
-        end
+        animateWindowTo(win, newFrame, duration)
     elseif direction == "up" then
         if win:isMinimized() then
             win:unminimize()
             hs.timer.doAfter(0.1, function() win:focus() end)
         else
-            -- Check if window is already maximized
             local currentFrame = win:frame()
             local isMaximized = math.abs(currentFrame.x - f.x) < 10 and
                 math.abs(currentFrame.y - f.y) < 10 and
@@ -192,44 +211,14 @@ local function moveWindow(direction, duration)
                 math.abs(currentFrame.h - f.h) < 10
 
             if isMaximized then
-                -- Window is maximized, make it smaller and centered
-                local scale = 0.90 -- 90% of screen size
+                local scale = 0.90
                 local w = f.w * scale
                 local h = f.h * scale
                 local x = f.x + (f.w - w) / 2
                 local y = f.y + (f.h - h) / 2
-                local newFrame = { x = x, y = y, w = w, h = h }
-                print(string.format("%s: Centering to x=%.0f, y=%.0f, w=%.0f, h=%.0f", appName, newFrame.x, newFrame.y,
-                    newFrame.w, newFrame.h))
-
-                if useAppleScript then
-                    moveZenWithAppleScript(newFrame)
-                    hs.timer.doAfter(0.1, function()
-                        local actual = win:frame()
-                        print(string.format("%s: AppleScript result - at x=%.0f, y=%.0f, w=%.0f, h=%.0f", appName,
-                            actual.x,
-                            actual.y, actual.w, actual.h))
-                    end)
-                else
-                    win:setFrame(newFrame, duration)
-                end
+                animateWindowTo(win, { x = x, y = y, w = w, h = h }, duration)
             else
-                -- Maximize (fill full screen)
-                local newFrame = { x = f.x, y = f.y, w = f.w, h = f.h }
-                print(string.format("%s: Maximizing to x=%.0f, y=%.0f, w=%.0f, h=%.0f", appName, newFrame.x, newFrame.y,
-                    newFrame.w, newFrame.h))
-
-                if useAppleScript then
-                    moveZenWithAppleScript(newFrame)
-                    hs.timer.doAfter(0.1, function()
-                        local actual = win:frame()
-                        print(string.format("%s: AppleScript result - at x=%.0f, y=%.0f, w=%.0f, h=%.0f", appName,
-                            actual.x,
-                            actual.y, actual.w, actual.h))
-                    end)
-                else
-                    win:maximize(duration)
-                end
+                animateWindowTo(win, { x = f.x, y = f.y, w = f.w, h = f.h }, duration)
             end
         end
     elseif direction == "down" then
@@ -243,28 +232,41 @@ local function moveWindow(direction, duration)
 
         local getFrame = cornerPositions[cycleIndex]
         local newFrame = getFrame(screen)
-        print(string.format("%s: Cycling to position %d: x=%.0f, y=%.0f, w=%.0f, h=%.0f", appName, cycleIndex, newFrame
-            .x, newFrame.y, newFrame.w, newFrame.h))
-
-        if useAppleScript then
-            moveZenWithAppleScript(newFrame)
-            hs.timer.doAfter(0.1, function()
-                local actual = win:frame()
-                print(string.format("%s: AppleScript result - at x=%.0f, y=%.0f, w=%.0f, h=%.0f", appName, actual.x,
-                    actual.y, actual.w, actual.h))
-            end)
-        else
-            win:setFrame(newFrame, duration)
-        end
+        animateWindowTo(win, newFrame, duration)
 
         cycleIndex = (cycleIndex % #cornerPositions) + 1
+    elseif direction == "down_reverse" then
+        local n = #cornerPositions
+        -- cycleIndex = next corner Cmd+Down would apply; last applied was cycleIndex-1 (wrap to n).
+        -- One step backward in the cycle is cycleIndex-2 (wrap).
+        local idx = cycleIndex - 2
+        if idx < 1 then
+            idx = idx + n
+        end
+
+        -- Same screen only: step backward through presets (no screen:previous)
+        hasCycled = true
+
+        local getFrame = cornerPositions[idx]
+        local newFrame = getFrame(screen)
+        animateWindowTo(win, newFrame, duration)
+
+        -- Match forward state: after showing corner idx, next Cmd+Down applies (idx % n) + 1
+        cycleIndex = (idx % n) + 1
     end
 end
 
--- Bind hotkeys
-hs.hotkey.bind({ "cmd" }, "left", function() moveWindow("left") end, nil, function() moveWindow("left", 0) end)
-hs.hotkey.bind({ "cmd" }, "right", function() moveWindow("right") end, nil, function() moveWindow("right", 0) end)
-hs.hotkey.bind({ "cmd" }, "up", function() moveWindow("up") end, nil, function() moveWindow("up", 0) end)
-hs.hotkey.bind({ "cmd" }, "down", function() moveWindow("down") end, nil, function() moveWindow("down", 0) end)
+local function moveWindowRepeat(direction)
+    return function()
+        moveWindow(direction, 0)
+    end
+end
+
+hs.hotkey.bind({ "cmd" }, "left", function() moveWindow("left") end, nil, moveWindowRepeat("left"))
+hs.hotkey.bind({ "cmd" }, "right", function() moveWindow("right") end, nil, moveWindowRepeat("right"))
+hs.hotkey.bind({ "cmd" }, "up", function() moveWindow("up") end, nil, moveWindowRepeat("up"))
+hs.hotkey.bind({ "cmd" }, "down", function() moveWindow("down") end, nil, moveWindowRepeat("down"))
+hs.hotkey.bind({ "cmd", "shift" }, "down", function() moveWindow("down_reverse") end, nil,
+    moveWindowRepeat("down_reverse"))
 
 hs.alert.show("Hammerspoon config loaded")
