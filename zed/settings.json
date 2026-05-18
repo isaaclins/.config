@@ -19,10 +19,10 @@
 	"edit_predictions": {
 		"ollama": {
 			"max_output_tokens": 128,
-			"prompt_format": "code_llama",
+			"prompt_format": "qwen",
 			"model": "gemma4:31b",
 		},
-		"provider": "ollama",
+		"provider": "zed",
 	},
 	"collaboration_panel": {
 		"button": true,
@@ -214,6 +214,9 @@
 		},
 		"github-copilot-cli": {
 			"favorite_config_option_values": {
+    "mode": [
+     "https://agentclientprotocol.com/protocol/session-modes#autopilot"
+    ],
     "reasoning_effort": [
      "high"
     ],

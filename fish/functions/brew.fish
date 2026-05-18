@@ -1,6 +1,6 @@
 # ~/.config/fish/functions/brew.fish
-# Purpose: Wraps Homebrew, records package/cask versions, and auto-generates bootstrap install scripts.
-# Usage: Use `brew ...` normally in fish; successful install/reinstall/upgrade commands update .versions.
+# Purpose: Wraps Homebrew, records package/cask versions, auto-generates bootstrap install scripts, and syncs ~/.config.
+# Usage: Use `brew ...` normally in fish; successful install/reinstall/upgrade commands update .versions and sync bootstrap/.
 function brew --description "brew wrapper with .versions tracking"
     set -l subcmd
     if test (count $argv) -gt 0
@@ -35,6 +35,10 @@ function brew --description "brew wrapper with .versions tracking"
         end
     end
 
+    if test $should_track -eq 1; and test (count $pkgs) -gt 0
+        __config_git_pull
+    end
+
     command brew $argv
     set -l brew_status $status
 
@@ -45,6 +49,7 @@ function brew --description "brew wrapper with .versions tracking"
                 __bootstrap_generate_installer "$pkg" "$is_cask"
             end
         end
+        __config_git_commit_and_push_bootstrap $pkgs
     end
 
     return $brew_status

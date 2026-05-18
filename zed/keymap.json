@@ -9,7 +9,7 @@
 	// --- Meta / navigation ---
 	{
 		"bindings": {
-			"cmd-.": "zed::OpenKeymapFile",
+
 			"cmd-p": "command_palette::Toggle",
 			"cmd-4": "zed::Extensions",
 			"cmd-t": "zed::OpenTasks",
