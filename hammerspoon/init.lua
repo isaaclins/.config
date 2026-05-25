@@ -1,3 +1,11 @@
+-- Always-on clamshell / external-display sleep policy (see lib/clamshell-sleep.lua)
+local clamshellOk, clamshellErr = pcall(function()
+    dofile(hs.configdir .. "/lib/clamshell-sleep.lua"):start()
+end)
+if not clamshellOk then
+    hs.alert.show("Clamshell sleep failed: " .. tostring(clamshellErr), 5)
+end
+
 -- Function to extract metadata from profile file
 local function getProfileMetadata(filePath)
     local metadata = {
