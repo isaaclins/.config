@@ -1,22 +1,11 @@
 {
-  "equalizer" : {
-    "bands" : [
-      0,
-      0,
-      0,
-      -2,
-      -1,
-      -0.5,
-      3.5,
-      3.5,
-      7.5,
-      -7.5
-    ],
-    "enabled" : false,
-    "preamp" : 12,
-    "userPresets" : [
-
-    ]
+  "appearance" : {
+    "colorScheme" : "system",
+    "language" : "en",
+    "lyricsTextSize" : "large"
+  },
+  "commandPalette" : {
+    "backdropBlur" : true
   },
   "keybinds" : [
     {
@@ -37,13 +26,6 @@
       "command" : "playlists.refresh",
       "keystrokes" : [
         "cmd-r"
-      ],
-      "when" : "signed_in"
-    },
-    {
-      "command" : "playlists.refreshTracks",
-      "keystrokes" : [
-        "cmd-t"
       ],
       "when" : "signed_in"
     },
@@ -79,6 +61,13 @@
       "command" : "queue.toggle",
       "keystrokes" : [
         "alt-cmd-q"
+      ],
+      "when" : "signed_in"
+    },
+    {
+      "command" : "lyrics.toggle",
+      "keystrokes" : [
+        "ctrl-cmd-l"
       ],
       "when" : "signed_in"
     },
