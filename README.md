@@ -50,3 +50,8 @@ This will install Homebrew (if missing) and then run every
 - `setjava openjdk` switches to the latest `openjdk` formula.
 - `setjava list` shows installed Homebrew JDKs and current/default state.
 - `setjava system` clears managed `JAVA_HOME` and Java PATH overrides.
+
+
+## Support
+
+If these dotfiles or bootstrap scripts saved you setup time: [Buy Me a Coffee](https://buymeacoffee.com/isaaclins)
