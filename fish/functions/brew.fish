@@ -1,6 +1,24 @@
 # ~/.config/fish/functions/brew.fish
 # Purpose: Wraps Homebrew, records package/cask versions, auto-generates bootstrap install scripts, and syncs ~/.config.
 # Usage: Use `brew ...` normally in fish; successful install/reinstall/upgrade commands update .versions and sync bootstrap/.
+function __brew_load_config_git_helpers --description "Load config git helpers when autoload did not"
+    if functions -q __config_git_pull
+        return 0
+    end
+
+    set -l dir "$__fish_config_dir/functions"
+    if test -f "$dir/__config_git_sync.fish"
+        source "$dir/__config_git_sync.fish"
+        return 0
+    end
+
+    for helper in __config_git_repo_root __config_git_pull __config_git_push __config_git_commit_and_push_bootstrap
+        if test -f "$dir/$helper.fish"
+            source "$dir/$helper.fish"
+        end
+    end
+end
+
 function brew --description "brew wrapper with .versions tracking"
     set -l subcmd
     if test (count $argv) -gt 0
@@ -36,6 +54,7 @@ function brew --description "brew wrapper with .versions tracking"
     end
 
     if test $should_track -eq 1; and test (count $pkgs) -gt 0
+        __brew_load_config_git_helpers
         __config_git_pull
     end
 
@@ -49,6 +68,7 @@ function brew --description "brew wrapper with .versions tracking"
                 __bootstrap_generate_installer "$pkg" "$is_cask"
             end
         end
+        __brew_load_config_git_helpers
         __config_git_commit_and_push_bootstrap $pkgs
     end
 
