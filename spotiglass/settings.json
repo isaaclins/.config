@@ -7,6 +7,26 @@
   "commandPalette" : {
     "backdropBlur" : true
   },
+  "equalizer" : {
+    "activePresetName" : "Flat",
+    "bands" : [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "enabled" : false,
+    "preamp" : 0,
+    "userPresets" : [
+
+    ]
+  },
   "keybinds" : [
     {
       "command" : "app.openSettings",

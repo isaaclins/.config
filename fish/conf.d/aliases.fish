@@ -7,4 +7,6 @@ abbr -a cls 'clear && clear'
 
 abbr -a fmt "prettier . --write"
 
+abbr -a cc 'claude --dangerously-skip-permissions'
+
 abbr -a code 'zed-preview'
