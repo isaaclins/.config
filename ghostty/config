@@ -1676,7 +1676,7 @@ keybind = super+shift+t=new_window
 keybind = super+shift+q=quit
 
 keybind = super+t=new_tab
-keybind = super+w=close_tab
+keybind = super+w=close_surface
 
 keybind = super+shift+plus=increase_font_size:1
 keybind = super+shift+minus=decrease_font_size:1
