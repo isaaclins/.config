@@ -503,7 +503,7 @@ grapheme-width-method = unicode
 
 # will override the colors specified in the theme.
 
-theme = TokyoNight Night
+theme = Arcoiris
 
 # Background color for the window.
 
