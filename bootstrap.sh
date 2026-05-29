@@ -10,6 +10,11 @@ VERSIONS_FILE="$ROOT_DIR/.versions"
 
 source "$ROOT_DIR/bootstrap/common.sh"
 
+# Wire tracked git hooks (pre-commit credential guard, etc.) for this clone.
+if [ -d "$ROOT_DIR/.git" ] && [ -d "$ROOT_DIR/.githooks" ]; then
+  git -C "$ROOT_DIR" config core.hooksPath .githooks
+fi
+
 {
   echo "# generated on $(date '+%Y-%m-%d %H:%M:%S')"
 } > "$VERSIONS_FILE"

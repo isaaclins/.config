@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# ~/.config/.githooks/pre-commit
+# Purpose: Hard-stop any commit that looks like it contains credentials. The
+# Claude Code config dir (~/.config/claude) holds OAuth tokens, MCP env vars, and
+# session history under a defensive .gitignore; this hook is the second line of
+# defence in case a path is force-added or the ignore rules drift.
+# Wiring: `git config core.hooksPath .githooks` (done by bootstrap.sh).
+
+set -euo pipefail
+
+red()  { printf '\033[31m%s\033[0m\n' "$*" >&2; }
+bold() { printf '\033[1m%s\033[0m\n' "$*" >&2; }
+
+fail() {
+    bold "pre-commit: refusing to commit — looks like a credential leak"
+    red  "$*"
+    red  ""
+    red  "If this is a false positive, bypass with: git commit --no-verify"
+    exit 1
+}
+
+# 1. Filename blocklist. Reject by path regardless of content.
+blocked_paths='(^|/)(\.claude\.json|credentials([._-].*)?\.json|\.env(\..+)?|.*\.(pem|key|p12|pfx|asc|log))$'
+
+while IFS= read -r path; do
+    [ -z "$path" ] && continue
+    if printf '%s\n' "$path" | grep -E -q "$blocked_paths"; then
+        # Allow obvious example/template files.
+        case "$path" in
+            *.env.example|*.env.sample|*example.env) continue ;;
+        esac
+        fail "blocked filename: $path"
+    fi
+done < <(git diff --cached --name-only --diff-filter=ACM)
+
+# 2. Content blocklist. Scan staged blob contents for token shapes.
+secret_patterns='sk-ant-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9]{30,}|gho_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|AKIA[0-9A-Z]{16}|xox[abprs]-[A-Za-z0-9-]{10,}|-----BEGIN (RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----'
+
+while IFS= read -r path; do
+    [ -z "$path" ] && continue
+    # Skip binary blobs — `git diff --cached` is quiet for them anyway.
+    if git diff --cached -- "$path" | grep -E -q "$secret_patterns"; then
+        hit=$(git diff --cached -- "$path" | grep -E -m1 -o "$secret_patterns" || true)
+        fail "secret-shaped string in $path: ${hit:0:24}…"
+    fi
+done < <(git diff --cached --name-only --diff-filter=ACM)
+
+exit 0

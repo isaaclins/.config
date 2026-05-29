@@ -3324,5 +3324,5 @@ command = /opt/homebrew/bin/fish
 mouse-hide-while-typing = true
 window-padding-balance = true
 macos-titlebar-style = transparent
-macos-option-as-alt = true
+macos-option-as-alt = false
 # default shell to fish, but only on ghostty
