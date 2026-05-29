@@ -103,11 +103,11 @@
 
 # new windows, tabs, etc.
 
-font-family = JetBrains Mono NL
+font-family = JetBrainsMono Nerd Font
 
-font-family-bold = JetBrains Mono NL Bold
-font-family-italic = JetBrains Mono NL Italic
-font-family-bold-italic = JetBrains Mono NL Bold Italic
+font-family-bold = JetBrainsMono Nerd Font Bold
+font-family-italic = JetBrainsMono Nerd Font Italic
+font-family-bold-italic = JetBrainsMono Nerd Font Bold Italic
 
 # The named font style to use for each of the requested terminal font styles.
 
@@ -503,7 +503,7 @@ grapheme-width-method = unicode
 
 # will override the colors specified in the theme.
 
-theme = Catppuccin Frappe
+theme = TokyoNight Night
 
 # Background color for the window.
 
@@ -3319,4 +3319,10 @@ auto-update = check
 
 # CUSTOM:
 command = /opt/homebrew/bin/fish
+
+# QoL additions
+mouse-hide-while-typing = true
+window-padding-balance = true
+macos-titlebar-style = transparent
+macos-option-as-alt = true
 # default shell to fish, but only on ghostty

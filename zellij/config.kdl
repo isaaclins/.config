@@ -1,0 +1,17 @@
+// ~/.config/zellij/config.kdl
+// Purpose: zellij multiplexer config — Tokyo Night theme, fish shell, sane mouse/copy defaults.
+// Usage: Loaded automatically when running `zellij` (alias `zj`).
+
+theme "tokyo-night"
+default_shell "fish"
+copy_on_select true
+mouse_mode true
+pane_frames true
+default_layout "compact"
+
+ui {
+    pane_frames {
+        rounded_corners true
+        hide_session_name false
+    }
+}

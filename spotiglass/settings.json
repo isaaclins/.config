@@ -7,6 +7,41 @@
   "commandPalette" : {
     "backdropBlur" : true
   },
+  "equalizer" : {
+    "activePresetName" : "isaac",
+    "bands" : [
+      12,
+      12,
+      10,
+      8,
+      6,
+      1.5,
+      1,
+      0,
+      0,
+      0
+    ],
+    "enabled" : true,
+    "preamp" : -2,
+    "userPresets" : [
+      {
+        "bands" : [
+          12,
+          12,
+          10,
+          8,
+          6,
+          1.5,
+          1,
+          0,
+          0,
+          0
+        ],
+        "name" : "isaac",
+        "preamp" : -2
+      }
+    ]
+  },
   "keybinds" : [
     {
       "command" : "app.openSettings",
