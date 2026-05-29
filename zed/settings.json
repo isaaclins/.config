@@ -7,7 +7,8 @@
 // custom settings, run `zed: open default settings` from the
 // command palette (cmd-shift-p / ctrl-shift-p)
 {
-	"git": {
+	"diff_view_style": "unified",
+ "git": {
 		"path_style": "file_name_first",
 		"inline_blame": {
 			"show_commit_summary": false,

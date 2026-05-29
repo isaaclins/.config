@@ -21,3 +21,11 @@ raycast-x
 mole/clean-list.txt
 uv/
 browseruse/extensions
+
+# Claude Code config dir ($CLAUDE_CONFIG_DIR): never commit credentials, session
+# history, caches, plugin state, etc. Allow only skills by default; un-ignore
+# more paths (settings.json, agents/, commands/, hooks/) deliberately by hand.
+claude/**
+!claude/skills
+!claude/skills/**
+claude/skills/**/.DS_Store
