@@ -22,10 +22,25 @@ mole/clean-list.txt
 uv/
 browseruse/extensions
 
+# Logs anywhere in the dotfiles tree: runtime data, often contains inline
+# credentials (commands with `--token=...`, Authorization headers, env pastes).
+**/*.log
+
 # Claude Code config dir ($CLAUDE_CONFIG_DIR): never commit credentials, session
 # history, caches, plugin state, etc. Allow only skills by default; un-ignore
 # more paths (settings.json, agents/, commands/, hooks/) deliberately by hand.
 claude/**
 !claude/skills
 !claude/skills/**
-claude/skills/**/.DS_Store
+!claude/agents
+!claude/agents/**
+!claude/commands
+!claude/commands/**
+!claude/hooks
+!claude/hooks/**
+!claude/settings.json
+claude/**/.DS_Store
+claude/**/credentials*
+claude/**/.claude.json
+claude/**/*.pem
+claude/**/*.key
