@@ -1,16 +1,32 @@
--- ICON: 1:
--- NAME: Window Manager
--- DESCRIPTION: Advanced window tiling and management
--- AUTHOR: isaaclins
--- AUTHOR_URL: https://github.com/isaaclins
--- Window management
+-- lib/window-manager.lua
+-- Cmd+arrow tiling window manager. Always loaded from init.lua, never a profile.
+--
+-- Public API:
+--   start()        -- bind hotkeys (Cmd+arrows, Cmd+Shift+Down)
+--   stop()         -- unbind hotkeys
+--   resetCycle()   -- reset Cmd+Down preset cycle to first slot
+--   left(win)      -- move win to left half  (helpful for profile on_launch hooks)
+--   right(win)
+--   maximize(win)
+--   center90(win)
+--   corner(win, n) -- snap win to corner preset n (1..8)
+--
+-- Hotkeys:
+--   Cmd+Left/Right        snap to half; repeat to jump to adjacent screen
+--   Cmd+Up                unminimize / maximize / shrink-maximized
+--   Cmd+Down              cycle through 8 corner presets; wraps to next screen
+--   Cmd+Shift+Down        reverse direction through the cycle
+
+local M = {}
+
+M.animationDuration = 0.42
+M.tweenFps = 60
+M.debug = false
+
 local cycleIndex = 1
 local hasCycled = false
-
--- Smooth motion: custom easing + stepped frames (avoids stacking hs.window timed animations)
-local animationDuration = 0.42
-local tweenFps = 60
 local tweenTimer = nil
+local hotkeys = {}
 
 local function roundRect(r)
     return {
@@ -21,7 +37,6 @@ local function roundRect(r)
     }
 end
 
--- Smoothstep-style ease (pleasant start/stop, no harsh linear motion)
 local function easeInOutCubic(t)
     if t < 0.5 then
         return 4 * t * t * t
@@ -36,25 +51,17 @@ local function stopActiveTween()
     end
 end
 
--- hs.window:isValid() is not available in all Hammerspoon builds; frame() fails safely via pcall.
 local function windowAlive(w)
     if not w then
         return false
     end
-    local ok = pcall(function()
-        w:frame()
-    end)
+    local ok = pcall(function() w:frame() end)
     return ok
 end
 
---- Interpolate focused window to target using short duration-0 frames (one animation at a time).
 local function animateWindowTo(win, targetFrame, duration)
-    if not win then
-        return
-    end
-    if duration == nil then
-        duration = animationDuration
-    end
+    if not win then return end
+    if duration == nil then duration = M.animationDuration end
     if duration <= 0 then
         stopActiveTween()
         win:setFrame(roundRect(targetFrame), 0)
@@ -76,27 +83,23 @@ local function animateWindowTo(win, targetFrame, duration)
     end
 
     local startTime = hs.timer.secondsSinceEpoch()
-    local interval = 1 / tweenFps
+    local interval = 1 / M.tweenFps
 
     local function tick()
         if not windowAlive(win) then
             stopActiveTween()
             return
         end
-
         local elapsed = hs.timer.secondsSinceEpoch() - startTime
         local t = math.min(1, elapsed / duration)
         local e = easeInOutCubic(t)
-
         local nf = roundRect({
             x = startFrame.x + dx * e,
             y = startFrame.y + dy * e,
             w = startFrame.w + dw * e,
             h = startFrame.h + dh * e,
         })
-
         win:setFrame(nf, 0)
-
         if t >= 1 then
             stopActiveTween()
             win:setFrame(targetFrame, 0)
@@ -107,7 +110,6 @@ local function animateWindowTo(win, targetFrame, duration)
     tweenTimer = hs.timer.doEvery(interval, tick)
 end
 
--- Helper to check if window is roughly at a frame
 local function isAtFrame(winFrame, targetFrame)
     return math.abs(winFrame.x - targetFrame.x) < 20 and
            math.abs(winFrame.y - targetFrame.y) < 20 and
@@ -115,58 +117,23 @@ local function isAtFrame(winFrame, targetFrame)
            math.abs(winFrame.h - targetFrame.h) < 20
 end
 
--- Visible usable rect for this screen (menu bar, Dock, etc. excluded vs fullFrame)
 local function getUsableFrame(screen)
     return screen:frame()
 end
 
 local cornerPositions = {
-    -- top-left
-    function(screen)
-        local f = getUsableFrame(screen)
-        return { x = f.x, y = f.y, w = f.w / 2, h = f.h / 2 }
-    end,
-    -- top
-    function(screen)
-        local f = getUsableFrame(screen)
-        return { x = f.x, y = f.y, w = f.w, h = f.h / 2 }
-    end,
-    -- top-right
-    function(screen)
-        local f = getUsableFrame(screen)
-        return { x = f.x + f.w / 2, y = f.y, w = f.w / 2, h = f.h / 2 }
-    end,
-    -- right
-    function(screen)
-        local f = getUsableFrame(screen)
-        return { x = f.x + f.w / 2, y = f.y, w = f.w / 2, h = f.h }
-    end,
-    -- bottom-right
-    function(screen)
-        local f = getUsableFrame(screen)
-        return { x = f.x + f.w / 2, y = f.y + f.h / 2, w = f.w / 2, h = f.h / 2 }
-    end,
-    -- bottom
-    function(screen)
-        local f = getUsableFrame(screen)
-        return { x = f.x, y = f.y + f.h / 2, w = f.w, h = f.h / 2 }
-    end,
-    -- bottom-left
-    function(screen)
-        local f = getUsableFrame(screen)
-        return { x = f.x, y = f.y + f.h / 2, w = f.w / 2, h = f.h / 2 }
-    end,
-    -- left
-    function(screen)
-        local f = getUsableFrame(screen)
-        return { x = f.x, y = f.y, w = f.w / 2, h = f.h }
-    end
+    function(screen) local f = getUsableFrame(screen); return { x = f.x,             y = f.y,             w = f.w / 2, h = f.h / 2 } end, -- top-left
+    function(screen) local f = getUsableFrame(screen); return { x = f.x,             y = f.y,             w = f.w,     h = f.h / 2 } end, -- top
+    function(screen) local f = getUsableFrame(screen); return { x = f.x + f.w / 2,   y = f.y,             w = f.w / 2, h = f.h / 2 } end, -- top-right
+    function(screen) local f = getUsableFrame(screen); return { x = f.x + f.w / 2,   y = f.y,             w = f.w / 2, h = f.h     } end, -- right
+    function(screen) local f = getUsableFrame(screen); return { x = f.x + f.w / 2,   y = f.y + f.h / 2,   w = f.w / 2, h = f.h / 2 } end, -- bottom-right
+    function(screen) local f = getUsableFrame(screen); return { x = f.x,             y = f.y + f.h / 2,   w = f.w,     h = f.h / 2 } end, -- bottom
+    function(screen) local f = getUsableFrame(screen); return { x = f.x,             y = f.y + f.h / 2,   w = f.w / 2, h = f.h / 2 } end, -- bottom-left
+    function(screen) local f = getUsableFrame(screen); return { x = f.x,             y = f.y,             w = f.w / 2, h = f.h     } end, -- left
 }
 
 local function moveWindow(direction, duration)
-    if duration == nil then
-        duration = animationDuration
-    end
+    if duration == nil then duration = M.animationDuration end
     local win = hs.window.focusedWindow()
     if not win then return end
 
@@ -175,7 +142,6 @@ local function moveWindow(direction, duration)
 
     if direction == "left" then
         local newFrame = { x = f.x, y = f.y, w = f.w / 2, h = f.h }
-
         if isAtFrame(win:frame(), newFrame) then
             local nextScreen = screen:toWest()
             if nextScreen then
@@ -184,11 +150,10 @@ local function moveWindow(direction, duration)
                 newFrame = { x = f.x + f.w / 2, y = f.y, w = f.w / 2, h = f.h }
             end
         end
-
         animateWindowTo(win, newFrame, duration)
+
     elseif direction == "right" then
         local newFrame = { x = f.x + f.w / 2, y = f.y, w = f.w / 2, h = f.h }
-
         if isAtFrame(win:frame(), newFrame) then
             local nextScreen = screen:toEast()
             if nextScreen then
@@ -197,8 +162,8 @@ local function moveWindow(direction, duration)
                 newFrame = { x = f.x, y = f.y, w = f.w / 2, h = f.h }
             end
         end
-
         animateWindowTo(win, newFrame, duration)
+
     elseif direction == "up" then
         if win:isMinimized() then
             win:unminimize()
@@ -209,7 +174,6 @@ local function moveWindow(direction, duration)
                 math.abs(currentFrame.y - f.y) < 10 and
                 math.abs(currentFrame.w - f.w) < 10 and
                 math.abs(currentFrame.h - f.h) < 10
-
             if isMaximized then
                 local scale = 0.90
                 local w = f.w * scale
@@ -221,52 +185,93 @@ local function moveWindow(direction, duration)
                 animateWindowTo(win, { x = f.x, y = f.y, w = f.w, h = f.h }, duration)
             end
         end
+
     elseif direction == "down" then
         if cycleIndex == 1 and hasCycled then
             local nextScreen = screen:next()
-            if nextScreen then
-                screen = nextScreen
-            end
+            if nextScreen then screen = nextScreen end
         end
         hasCycled = true
-
-        local getFrame = cornerPositions[cycleIndex]
-        local newFrame = getFrame(screen)
+        local newFrame = cornerPositions[cycleIndex](screen)
         animateWindowTo(win, newFrame, duration)
-
         cycleIndex = (cycleIndex % #cornerPositions) + 1
+
     elseif direction == "down_reverse" then
         local n = #cornerPositions
-        -- cycleIndex = next corner Cmd+Down would apply; last applied was cycleIndex-1 (wrap to n).
-        -- One step backward in the cycle is cycleIndex-2 (wrap).
         local idx = cycleIndex - 2
-        if idx < 1 then
-            idx = idx + n
-        end
-
-        -- Same screen only: step backward through presets (no screen:previous)
+        if idx < 1 then idx = idx + n end
         hasCycled = true
-
-        local getFrame = cornerPositions[idx]
-        local newFrame = getFrame(screen)
+        local newFrame = cornerPositions[idx](screen)
         animateWindowTo(win, newFrame, duration)
-
-        -- Match forward state: after showing corner idx, next Cmd+Down applies (idx % n) + 1
         cycleIndex = (idx % n) + 1
     end
 end
 
 local function moveWindowRepeat(direction)
-    return function()
-        moveWindow(direction, 0)
-    end
+    return function() moveWindow(direction, 0) end
 end
 
-hs.hotkey.bind({ "cmd" }, "left", function() moveWindow("left") end, nil, moveWindowRepeat("left"))
-hs.hotkey.bind({ "cmd" }, "right", function() moveWindow("right") end, nil, moveWindowRepeat("right"))
-hs.hotkey.bind({ "cmd" }, "up", function() moveWindow("up") end, nil, moveWindowRepeat("up"))
-hs.hotkey.bind({ "cmd" }, "down", function() moveWindow("down") end, nil, moveWindowRepeat("down"))
-hs.hotkey.bind({ "cmd", "shift" }, "down", function() moveWindow("down_reverse") end, nil,
-    moveWindowRepeat("down_reverse"))
+-- Public API for hooks
+function M.left(win)
+    win = win or hs.window.focusedWindow()
+    if not win then return end
+    local f = getUsableFrame(win:screen())
+    animateWindowTo(win, { x = f.x, y = f.y, w = f.w / 2, h = f.h })
+end
 
-hs.alert.show("Hammerspoon config loaded")
+function M.right(win)
+    win = win or hs.window.focusedWindow()
+    if not win then return end
+    local f = getUsableFrame(win:screen())
+    animateWindowTo(win, { x = f.x + f.w / 2, y = f.y, w = f.w / 2, h = f.h })
+end
+
+function M.maximize(win)
+    win = win or hs.window.focusedWindow()
+    if not win then return end
+    local f = getUsableFrame(win:screen())
+    animateWindowTo(win, f)
+end
+
+function M.center90(win)
+    win = win or hs.window.focusedWindow()
+    if not win then return end
+    local f = getUsableFrame(win:screen())
+    local w, h = f.w * 0.9, f.h * 0.9
+    animateWindowTo(win, { x = f.x + (f.w - w) / 2, y = f.y + (f.h - h) / 2, w = w, h = h })
+end
+
+function M.corner(win, n)
+    win = win or hs.window.focusedWindow()
+    if not win or not cornerPositions[n] then return end
+    animateWindowTo(win, cornerPositions[n](win:screen()))
+end
+
+function M.resetCycle()
+    cycleIndex = 1
+    hasCycled = false
+end
+
+function M.stop()
+    for _, hk in ipairs(hotkeys) do
+        hk:delete()
+    end
+    hotkeys = {}
+    stopActiveTween()
+end
+
+function M.start()
+    M.stop()
+    table.insert(hotkeys, hs.hotkey.bind({ "cmd" }, "left",
+        function() moveWindow("left") end, nil, moveWindowRepeat("left")))
+    table.insert(hotkeys, hs.hotkey.bind({ "cmd" }, "right",
+        function() moveWindow("right") end, nil, moveWindowRepeat("right")))
+    table.insert(hotkeys, hs.hotkey.bind({ "cmd" }, "up",
+        function() moveWindow("up") end, nil, moveWindowRepeat("up")))
+    table.insert(hotkeys, hs.hotkey.bind({ "cmd" }, "down",
+        function() moveWindow("down") end, nil, moveWindowRepeat("down")))
+    table.insert(hotkeys, hs.hotkey.bind({ "cmd", "shift" }, "down",
+        function() moveWindow("down_reverse") end, nil, moveWindowRepeat("down_reverse")))
+end
+
+return M
