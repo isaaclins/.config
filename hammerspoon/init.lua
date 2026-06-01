@@ -15,7 +15,7 @@ pcall(require, "hs.ipc")
 --
 -- Global hotkeys:
 --   ⌘⇧P  — activate-profile chooser (with modifier-driven boundary)
---   ⌘⇧N  — new-profile picker
+-- Chooser-only hotkeys (active while ⌘⇧P panel is open):
 --   ⌘⇧R  — reactivate current profile
 
 -- ----------------------------------------------------------------------
@@ -112,7 +112,7 @@ local function refreshChoices()
     end
     table.insert(currentChoices, {
         text = "New profile…",
-        subText = "Open the picker to create a new app context (⌘⇧N)",
+        subText = "Open the picker to create a new app context",
         slug = NEW_PROFILE_KEY,
         image = newProfileIcon(),
     })
@@ -167,6 +167,7 @@ local KEY_DELETE   = 51  -- backspace
 local KEY_COMMA    = 43
 local KEY_RETURN   = 36
 local KEY_KP_ENTER = 76
+local KEY_R        = 15
 
 -- Modifier state captured at the moment Enter is pressed.  Read it inside the
 -- chooser's completion callback (where checkKeyboardModifiers() returns the
@@ -186,6 +187,15 @@ deleteTap = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(e)
             ctrl  = flags.ctrl  or false,
         }
         return false  -- let the chooser handle Enter normally
+    end
+
+    if keyCode == KEY_R
+        and flags.cmd and flags.shift
+        and not flags.alt and not flags.ctrl
+    then
+        profileChooser:hide()
+        hs.timer.doAfter(0.05, function() manager.reactivate() end)
+        return true
     end
 
     if keyCode ~= KEY_DELETE and keyCode ~= KEY_COMMA then return false end
@@ -237,11 +247,6 @@ menubar.start({
 -- ----------------------------------------------------------------------
 
 hs.hotkey.bind({ "cmd", "shift" }, "P", openChooser)
-hs.hotkey.bind({ "cmd", "shift" }, "N", function()
-    pickerCameFromChooser = false
-    picker.openNew()
-end)
-hs.hotkey.bind({ "cmd", "shift" }, "R", function() manager.reactivate() end)
 
 picker.onClose(function()
     if pickerCameFromChooser then
@@ -267,4 +272,4 @@ _G.AppProfileManager = {
 -- Load notification
 -- ----------------------------------------------------------------------
 
-hs.alert.show("App-profile manager loaded\n⌘⇧P · ⌘⇧N · ⌘⇧R", 2)
+hs.alert.show("App-profile manager loaded\n⌘⇧P", 2)

@@ -12,6 +12,8 @@ abbr -a checkup 'command ls -lt ~/.claude/sleep-log/ | head'
 
 abbr -a code 'zed-preview'
 
+abbr -a tmp 'cd (mktemp -d)'
+
 # Modern CLI replacements (only applied if the tool is installed)
 if type -q eza
     alias ls  'eza --icons --group-directories-first'
