@@ -69,6 +69,32 @@ What should the agent produce at the end to confirm completion?
 - NEVER accept "I'll figure that out later" — require a decision or explicitly mark it as an open question before moving on.
 - NEVER let the user redirect to implementation details before all branches are resolved.
 - NEVER output the mega prompt until all blocking branches (1, 2, 3) are resolved. Branches 4–6 can use sensible defaults if the user wants to move fast.
+- NEVER output a prompt without first verifying its character count fits the length budget (see below). Going over is a hard failure.
+
+## Length budget
+
+The `/goal` prompt has to be paste-able into a single Claude Code / Codex message and stay readable. Hard cap: **4,000 characters by default** (counting every character inside the code block, including newlines). If the user specifies a different cap (e.g. "below 3000 chars"), use theirs.
+
+Before outputting, you MUST verify the count. Don't eyeball it — actually measure. Two ways:
+
+1. Bash check (preferred): write the draft prompt to a tmp file and `wc -c` it.
+
+   ```bash
+   wc -c <<'EOF'
+   <paste full prompt body here, including the /goal line through "execute end-to-end">
+   EOF
+   ```
+
+2. Mental check (only for short prompts): sum the line lengths.
+
+If the count exceeds the cap, trim before outputting. Trimming priority order:
+1. Tighten verbose CONTEXT bullets (drop redundant phrasing).
+2. Compress SUCCESS CRITERIA — keep the measurable assertion, drop the explanation.
+3. Drop the FINAL DELIVERABLE block down to one line per icon.
+4. Inline the QUALITY BAR bullets into the FINAL DELIVERABLE line if needed.
+5. Only as a last resort: drop a success criterion. If you do, flag it in the post-output summary.
+
+After outputting the prompt, state the verified char count in the summary line (e.g. "3,847 chars, fits the 4000 budget").
 
 ## When to Stop Interviewing
 
