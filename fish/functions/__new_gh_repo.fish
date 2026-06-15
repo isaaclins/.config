@@ -123,5 +123,4 @@ function __new_gh_repo --description "Create and publish a new GitHub repo"
     echo "Created $visibility repo: $repo_spec"
     echo "Remote: $active_remote"
     echo "Working directory: "(pwd)
-    __initialize_cursor_roadmap_scaffold
 end

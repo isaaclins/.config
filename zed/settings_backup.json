@@ -1,0 +1,258 @@
+// Zed settings
+//
+// For information on how to configure Zed, see the Zed
+// documentation: https://zed.dev/docs/configuring-zed
+//
+// To see all of Zed's default settings without changing your
+// custom settings, run `zed: open default settings` from the
+// command palette (cmd-shift-p / ctrl-shift-p)
+{
+	"diff_view_style": "unified",
+ "git": {
+		"path_style": "file_name_first",
+		"inline_blame": {
+			"show_commit_summary": false,
+		},
+	},
+	"calls": {
+		"mute_on_join": true,
+	},
+	"edit_predictions": {
+		"ollama": {
+			"max_output_tokens": 128,
+			"prompt_format": "qwen",
+			"model": "gemma4:31b",
+		},
+		"provider": "zed",
+	},
+	"collaboration_panel": {
+		"button": true,
+	},
+	"git_panel": {
+		"dock": "left",
+		"button": false,
+		"tree_view": true,
+	},
+	"zoomed_padding": true,
+	"use_system_window_tabs": false,
+	"tab_bar": {
+		"show_pinned_tabs_in_separate_row": false,
+		"show_tab_bar_buttons": false,
+	},
+	"tabs": {
+		"activate_on_close": "neighbour",
+		"show_close_button": "hidden",
+		"show_diagnostics": "all",
+		"close_position": "right",
+		"file_icons": true,
+		"git_status": true,
+	},
+	"title_bar": {
+		"button_layout": "platform_default",
+		"show_menus": false,
+		"show_user_picture": true,
+		"show_user_menu": true,
+		"show_branch_icon": true,
+		"show_branch_name": true,
+		"show_project_items": true,
+		"show_onboarding_banner": false,
+		"show_sign_in": false,
+	},
+	"debugger": {
+		"button": false,
+	},
+	"diagnostics": {
+		"button": false,
+	},
+	"terminal": {
+		"show_count_badge": true,
+		"shell": "system",
+		"button": false,
+	},
+	"status_bar": {
+		"cursor_position_button": false,
+		"active_encoding_button": "non_utf8",
+		"active_language_button": false,
+	},
+	"project_panel": {
+		"sticky_scroll": true,
+		"auto_fold_dirs": true,
+		"sort_order": "default",
+		"sort_mode": "files_first",
+		"hide_root": false,
+		"dock": "left",
+		"button": false,
+	},
+	"close_on_file_delete": true,
+	"file_finder": {
+		"modal_max_width": "small",
+		"file_icons": true,
+	},
+	"search": {
+		"button": false,
+		"center_on_match": false,
+		"case_sensitive": false,
+		"whole_word": false,
+	},
+	"show_whitespaces": "selection",
+	"indent_guides": {
+		"enabled": true,
+		"coloring": "indent_aware",
+		"background_coloring": "disabled",
+	},
+	"allow_rewrap": "in_comments",
+	"soft_wrap": "none",
+	"tab_size": 4,
+	"hard_tabs": true,
+	"toolbar": {
+		"agent_review": false,
+		"code_actions": false,
+		"selections_menu": false,
+		"quick_actions": false,
+		"breadcrumbs": true,
+	},
+	"minimap": {
+		"show": "always",
+		"max_width_columns": 80,
+		"current_line_highlight": "all",
+		"thumb_border": "full",
+	},
+	"gutter": {
+		"line_numbers": true,
+	},
+	"relative_line_numbers": "disabled",
+	"auto_signature_help": true,
+	"sticky_scroll": {
+		"enabled": false,
+	},
+	"scroll_beyond_last_line": "vertical_scroll_margin",
+	"which_key": {
+		"delay_ms": 1000,
+	},
+	"show_wrap_guides": false,
+	"current_line_highlight": "all",
+	"cursor_blink": false,
+	"text_rendering_mode": "platform_default",
+	"icon_theme": {
+		"mode": "light",
+		"light": "Colored Zed Icons Theme Light",
+		"dark": "Colored Zed Icons Theme Dark",
+	},
+	"ui_font_family": ".ZedMono",
+	"buffer_line_height": "comfortable",
+	"buffer_font_family": ".ZedMono",
+	"redact_private_values": false,
+	"on_last_window_closed": "quit_app",
+	"when_closing_with_no_tabs": "close_window",
+	"proxy": "",
+	"agent": {
+		"profiles": {
+			"max": {
+				"name": "max",
+				"tools": {
+					"search_web": true,
+					"move_path": true,
+					"now": true,
+					"open": true,
+					"restore_file_from_disk": true,
+					"save_file": true,
+					"spawn_agent": true,
+					"terminal": true,
+					"update_plan": true,
+					"delete_path": true,
+					"diagnostics": true,
+					"edit_file": true,
+					"fetch": true,
+					"find_path": true,
+					"grep": true,
+					"list_directory": true,
+					"read_file": true,
+					"create_directory": true,
+					"copy_path": true,
+				},
+				"enable_all_context_servers": false,
+				"context_servers": {},
+			},
+		},
+		"play_sound_when_agent_done": "always",
+		"notify_when_agent_waiting": "all_screens",
+		"inline_assistant_model": {
+			"provider": "copilot_chat",
+			"model": "gpt-5-mini",
+			"enable_thinking": false,
+		},
+		"single_file_review": false,
+		"tool_permissions": {
+			"default": "allow",
+			"tools": {
+				"search_web": {
+					"default": "allow",
+				},
+				"terminal": {
+					"always_confirm": [],
+					"default": "allow",
+				},
+			},
+		},
+		"dock": "right", // all projects oversight
+		"sidebar_side": "right", // AI Sidebar agent
+		"favorite_models": [],
+		"model_parameters": [],
+		"thinking_display": "auto",
+	},
+	"session": {
+		"trust_all_worktrees": true,
+	},
+	"autosave": {
+		"after_delay": {
+			"milliseconds": 250,
+		},
+	},
+	"agent_servers": {
+		"claude-acp": {
+   "type": "registry"
+  },
+  "gemini": {
+			"favorite_models": ["auto-gemini-3"],
+			"type": "registry",
+		},
+		"github-copilot-cli": {
+			"favorite_config_option_values": {
+    "mode": [
+     "https://agentclientprotocol.com/protocol/session-modes#autopilot"
+    ],
+    "reasoning_effort": [
+     "high"
+    ],
+    "model": [
+     "gpt-5.3-codex"
+    ]
+   },
+   "type": "registry",
+		},
+		"cursor": {
+			"favorite_config_option_values": {
+				"model": [
+     "claude-opus-4-7[thinking=true,context=200k,effort=high]",
+     "default[]",
+     "composer-2[fast=true]"
+    ],
+    "mode": ["agent", "plan"],
+			},
+			"default_config_options": {
+				"mode": "agent",
+			},
+			"type": "custom",
+			"command": "cursor-agent",
+			"args": ["--yolo", "acp"],
+		},
+	},
+	"base_keymap": "VSCode",
+	"ui_font_size": 16,
+	"buffer_font_size": 13.0,
+	"theme": {
+		"mode": "dark",
+		"light": "One Light",
+		"dark": "Ayu Dark",
+	},
+}

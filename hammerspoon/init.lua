@@ -15,8 +15,6 @@ pcall(require, "hs.ipc")
 --
 -- Global hotkeys:
 --   ⌘⇧P  — activate-profile chooser (with modifier-driven boundary)
--- Chooser-only hotkeys (active while ⌘⇧P panel is open):
---   ⌘⇧R  — reactivate current profile
 
 -- ----------------------------------------------------------------------
 -- Always-on modules
@@ -167,7 +165,6 @@ local KEY_DELETE   = 51  -- backspace
 local KEY_COMMA    = 43
 local KEY_RETURN   = 36
 local KEY_KP_ENTER = 76
-local KEY_R        = 15
 
 -- Modifier state captured at the moment Enter is pressed.  Read it inside the
 -- chooser's completion callback (where checkKeyboardModifiers() returns the
@@ -187,15 +184,6 @@ deleteTap = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(e)
             ctrl  = flags.ctrl  or false,
         }
         return false  -- let the chooser handle Enter normally
-    end
-
-    if keyCode == KEY_R
-        and flags.cmd and flags.shift
-        and not flags.alt and not flags.ctrl
-    then
-        profileChooser:hide()
-        hs.timer.doAfter(0.05, function() manager.reactivate() end)
-        return true
     end
 
     if keyCode ~= KEY_DELETE and keyCode ~= KEY_COMMA then return false end

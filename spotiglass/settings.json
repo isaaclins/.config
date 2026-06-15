@@ -2,54 +2,32 @@
   "appearance" : {
     "colorScheme" : "system",
     "language" : "en",
-    "lyricsTextSize" : "large"
+    "lyricsTextSize" : "medium"
   },
   "commandPalette" : {
     "backdropBlur" : true
   },
   "equalizer" : {
-    "activePresetName" : "isaac",
+    "activePresetName" : "Flat",
     "bands" : [
-      12,
-      12,
-      10,
-      8,
-      6,
-      1.5,
-      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
       0,
       0,
       0
     ],
-    "enabled" : true,
-    "preamp" : -2,
+    "enabled" : false,
+    "preamp" : 0,
     "userPresets" : [
-      {
-        "bands" : [
-          12,
-          12,
-          10,
-          8,
-          6,
-          1.5,
-          1,
-          0,
-          0,
-          0
-        ],
-        "name" : "isaac",
-        "preamp" : -2
-      }
+
     ]
   },
   "keybinds" : [
-    {
-      "command" : "app.openSettings",
-      "keystrokes" : [
-        "cmd-,"
-      ],
-      "when" : "always"
-    },
     {
       "command" : "palette.open",
       "keystrokes" : [
@@ -100,16 +78,23 @@
       "when" : "signed_in"
     },
     {
-      "command" : "lyrics.toggle",
+      "command" : "app.openSettings",
       "keystrokes" : [
-        "ctrl-l"
+        "cmd-,"
       ],
-      "when" : "signed_in"
+      "when" : "always"
     },
     {
       "command" : "palette.pin",
       "keystrokes" : [
-        "cmd-p"
+        "cmd-return"
+      ],
+      "when" : "palette_open"
+    },
+    {
+      "command" : "palette.enqueue",
+      "keystrokes" : [
+        "shift-return"
       ],
       "when" : "palette_open"
     }

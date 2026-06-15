@@ -48,11 +48,11 @@
 		"git_status": true,
 	},
 	"title_bar": {
-		"button_layout": "platform_default",
+		"show_branch_status_icon": true,
+  "button_layout": "platform_default",
 		"show_menus": false,
 		"show_user_picture": true,
 		"show_user_menu": true,
-		"show_branch_icon": true,
 		"show_branch_name": true,
 		"show_project_items": true,
 		"show_onboarding_banner": false,
@@ -209,7 +209,10 @@
 		},
 	},
 	"agent_servers": {
-		"gemini": {
+		"claude-acp": {
+   "type": "registry"
+  },
+  "gemini": {
 			"favorite_models": ["auto-gemini-3"],
 			"type": "registry",
 		},
