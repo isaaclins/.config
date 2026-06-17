@@ -22,6 +22,11 @@ local M = {}
 M.animationDuration = 0.42
 M.tweenFps = 60
 M.debug = false
+-- When true, Cmd+Left/Right wraps around the far edge of the screen
+-- arrangement instead of stopping: past the right edge of the rightmost
+-- screen it jumps to the left half of the leftmost screen, and vice versa.
+-- On a single screen this just toggles between left and right halves forever.
+M.wrapHorizontal = true
 
 local cycleIndex = 1
 local hasCycled = false
@@ -121,6 +126,22 @@ local function getUsableFrame(screen)
     return screen:frame()
 end
 
+-- Return the leftmost ("west") or rightmost ("east") screen in the current
+-- arrangement, by horizontal origin. Used for horizontal wraparound.
+local function horizontalEdgeScreen(edge)
+    local best = nil
+    for _, s in ipairs(hs.screen.allScreens()) do
+        if not best then
+            best = s
+        else
+            local bx, sx = best:frame().x, s:frame().x
+            if edge == "west" and sx < bx then best = s end
+            if edge == "east" and sx > bx then best = s end
+        end
+    end
+    return best
+end
+
 local cornerPositions = {
     function(screen) local f = getUsableFrame(screen); return { x = f.x,             y = f.y,             w = f.w / 2, h = f.h / 2 } end, -- top-left
     function(screen) local f = getUsableFrame(screen); return { x = f.x,             y = f.y,             w = f.w,     h = f.h / 2 } end, -- top
@@ -144,6 +165,9 @@ local function moveWindow(direction, duration)
         local newFrame = { x = f.x, y = f.y, w = f.w / 2, h = f.h }
         if isAtFrame(win:frame(), newFrame) then
             local nextScreen = screen:toWest()
+            if not nextScreen and M.wrapHorizontal then
+                nextScreen = horizontalEdgeScreen("east")
+            end
             if nextScreen then
                 screen = nextScreen
                 f = getUsableFrame(screen)
@@ -156,6 +180,9 @@ local function moveWindow(direction, duration)
         local newFrame = { x = f.x + f.w / 2, y = f.y, w = f.w / 2, h = f.h }
         if isAtFrame(win:frame(), newFrame) then
             local nextScreen = screen:toEast()
+            if not nextScreen and M.wrapHorizontal then
+                nextScreen = horizontalEdgeScreen("west")
+            end
             if nextScreen then
                 screen = nextScreen
                 f = getUsableFrame(screen)
