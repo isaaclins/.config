@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
 # ~/.config/bootstrap/cli/shell/install-claude-skills.sh
-# Purpose: Wire the legacy `~/.claude/skills/` path to the dotfile-tracked
-#   `$CLAUDE_CONFIG_DIR/skills/` location. Claude Code itself reads from
-#   `$CLAUDE_CONFIG_DIR` (set in `fish/conf.d/claude.fish`), but it does NOT
-#   propagate that env var to shell subprocesses. Third-party CLIs like
-#   `npx skills add` therefore fall back to the hard-coded `~/.claude/skills`
-#   path and silently bypass the dotfile sync. Making it a symlink fixes that.
+# Purpose: Wire the legacy `~/.claude/skills/` path to the canonical dotfile-tracked
+#   skills store at `~/.config/agents/skills`. Claude Code reads skills from
+#   `$CLAUDE_CONFIG_DIR/skills` (set to `~/.config/agents/claude` in
+#   `fish/conf.d/claude.fish`, where `skills` is itself a symlink to the
+#   canonical store), but it does NOT propagate that env var to shell
+#   subprocesses. Third-party CLIs like `npx skills add` therefore fall back to
+#   the hard-coded `~/.claude/skills` path and silently bypass the dotfile sync.
+#   Making `~/.claude/skills` a symlink to the canonical store fixes that.
 # Usage: Idempotent. Run via bootstrap.sh, or directly:
 #   bash ~/.config/bootstrap/cli/shell/install-claude-skills.sh
 
 set -euo pipefail
 
-CANONICAL="$HOME/.config/claude/skills"
+CANONICAL="$HOME/.config/agents/skills"
 LEGACY="$HOME/.claude/skills"
 
 mkdir -p "$CANONICAL"

@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # ~/.config/.githooks/pre-commit
 # Purpose: Hard-stop any commit that looks like it contains credentials. The
-# Claude Code config dir (~/.config/claude) holds OAuth tokens, MCP env vars, and
-# session history under a defensive .gitignore; this hook is the second line of
-# defence in case a path is force-added or the ignore rules drift.
+# shared agents umbrella (~/.config/agents/claude and ~/.config/agents/codex) and
+# the retired ~/.config/claude home hold OAuth tokens, MCP env vars, auth.json,
+# and session history under a defensive .gitignore; this hook is the second line
+# of defence in case a path is force-added or the ignore rules drift.
 # Wiring: `git config core.hooksPath .githooks` (done by bootstrap.sh).
 
 set -euo pipefail

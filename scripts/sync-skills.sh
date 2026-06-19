@@ -2,23 +2,27 @@
 #
 # sync-skills.sh — keep every agent's skills in sync from ONE canonical store.
 #
-# Canonical (real, git-versioned content):  ~/.config/claude/skills
+# Canonical (real, git-versioned content):  ~/.config/agents/skills
 # Consumers (read at runtime):
-#   - Claude Code : ~/.claude/skills            -> symlink to the canonical dir
-#   - Codex       : ~/.codex/skills/<name>      -> per-skill symlinks into canonical
-#                   (~/.codex/skills/.system is left untouched — those are Codex built-ins)
+#   - Claude Code : ~/.config/agents/claude/skills -> symlink to the canonical dir
+#                   (and ~/.claude/skills as a fallback symlink for bare `npx skills`)
+#   - Codex       : ~/.config/agents/codex/skills/<name> -> per-skill symlinks into canonical
+#                   (codex skills/.system is left untouched — those are Codex built-ins)
 #
 # Staging:  ~/.agents/skills  is where `npx skills` installs. It is NOT read by any
 # agent at runtime, so this script ABSORBS new installs from there into the canonical
 # repo (copying real content in) and otherwise leaves it alone.
 #
+# Rules (AGENTS.md) are NOT synced here: Claude imports the shared file via its
+# CLAUDE.md and Codex reads it via a symlinked AGENTS.md, so there is nothing to copy.
+#
 # Safe + idempotent: re-run any time. Use --dry-run to preview.
 #
 set -euo pipefail
 
-CANON="$HOME/.config/claude/skills"
+CANON="$HOME/.config/agents/skills"
 AGENTS="$HOME/.agents/skills"
-CODEX="$HOME/.codex/skills"
+CODEX="$HOME/.config/agents/codex/skills"
 CLAUDE_LINK="$HOME/.claude/skills"
 
 DRY=0
@@ -58,7 +62,7 @@ else
   echo "  linked"
 fi
 
-# 3) Codex: one symlink per canonical skill into ~/.codex/skills (preserve .system).
+# 3) Codex: one symlink per canonical skill into the codex skills dir (preserve .system).
 echo "==> Codex links: $CODEX/<name> -> $CANON/<name>"
 run "mkdir -p '$CODEX'"
 linked=0
