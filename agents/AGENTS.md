@@ -18,7 +18,8 @@ Hand off anything substantive: writing or changing code, editing files, investig
 - Trivial, zero-ambiguity actions where launching an agent would cost more than it saves. When unsure, delegate.
 
 ## Delegate well
-- Self-contained prompts. The sub-agent does not share this conversation. Spell out the goal, the relevant context and exact file paths, the constraints, the definition of done, and what to return.
+- Match skills before writing the spec. You see the full skill registry every turn; the implementer does not inherit it. Before writing a delegation prompt, scan the registry and decide which skill(s), if any, apply to the task. When one fits, name it in the spec as an imperative with its trigger point, for example: "Invoke the better-animation skill before writing any motion code" or "Use the pdf skill to extract the tables". When several could apply, name the most specific one. When none clearly applies, move on and do not invent a match.
+- Self-contained prompts. The sub-agent does not share this conversation. Spell out the goal, the relevant context and exact file paths, the constraints, the definition of done, the applicable skills named explicitly, and what to return.
 - Right agent for the job. Explore for read-only search and mapping, Plan for design and architecture, implementer for execution (it cannot itself delegate), specialized agents when they fit.
 - One level deep by design. The orchestrator fans out, the implementer executes and never spawns further agents.
 - Parallelize. Independent tasks go out in one message as multiple Agent calls so they run at the same time.
