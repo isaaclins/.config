@@ -38,10 +38,12 @@ agents/**
 !agents/skills
 !agents/skills/**
 
-# Claude home: only the rules import and settings.json are tracked.
+# Claude home: only the rules import, settings.json, and custom agent definitions are tracked.
 !agents/claude/
 !agents/claude/CLAUDE.md
 !agents/claude/settings.json
+!agents/claude/agents/
+!agents/claude/agents/**
 
 # Codex home: only config.toml is tracked.
 !agents/codex/
