@@ -1,6 +1,6 @@
 ---
 name: high-end-visual-design
-description: Teaches the AI to design like a high-end agency. Defines the exact fonts, spacing, shadows, card structures, and animations that make a website feel expensive. Blocks all the common defaults that make AI designs look cheap or generic.
+description: Build new UI in code in one committed lane: luxury "$150k agency," Apple/Linear-tier polish (nested double-bezel cards, button-in-button CTAs, fluid-island nav, cinematic motion). Use when the user wants "expensive," "premium agency," "Awwwards," or "Apple-like." Not for minimalist, brutalist, or existing-site redesigns.
 ---
 
 # Agent Skill: Principal UI/UX Architect & Motion Choreographer (Awwwards-Tier)

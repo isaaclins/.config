@@ -1,6 +1,6 @@
 ---
 name: create-frontend-concepts
-description: Generate multiple distinct, production-quality frontend design concepts for a brand or idea in parallel, then publish an A/B-test gallery that links to all of them. Use when the user says "/create-frontend-concepts", wants several different landing-page/storefront/homepage design directions to choose between, wants to A/B test designs, or asks to "spin up agents" to explore design directions for a brand. Each concept is built by a separate agent using a DIFFERENT design skill and a DIFFERENT aesthetic lane, so the outputs are genuinely varied — not the same page recolored.
+description: Orchestrator: spin up 5 to 8 parallel agents, each using a different design skill and aesthetic lane, then publish an A/B-test gallery. Use for "explore directions / spin up agents / A/B test designs / several concepts to choose from." It invokes the other design skills; it is not itself a single-page builder.
 ---
 
 # create-frontend-concepts
@@ -40,9 +40,9 @@ Use TaskCreate to track: parse → dispatch agents → build gallery → deploy 
 Pick `count` agents (default 6). Give **each agent a unique row** from the rosters below. Distinct **lanes** are what guarantee variety — never skip them.
 
 **Design skills** (rotate; each agent gets one it invokes via the Skill tool):
-`design-taste-frontend`, `high-end-visual-design`, `gpt-taste`, `industrial-brutalist-ui`, `minimalist-ui`, `frontend-design`, `stitch-design-taste`, `design-taste-frontend-v1` (backup).
+`design-taste-frontend`, `high-end-visual-design`, `gpt-taste`, `industrial-brutalist-ui`, `minimalist-ui`, `stitch-design-taste`.
 
-**Motion skills** (alternate per agent): `better-animate`, `animation-vocabulary`.
+**Motion skills** (alternate per agent): `better-animation`, `animation-vocabulary`.
 
 **Aesthetic lanes** (assign a DISTINCT one to each agent — pick the `count` that best fit the brand; adapt/replace freely):
 | Lane | Flavor |

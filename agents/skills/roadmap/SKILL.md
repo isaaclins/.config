@@ -1,6 +1,6 @@
 ---
 name: roadmap
-description: "Plan and execute entire application builds. Generates phased delivery roadmaps, then executes them autonomously — phase by phase, committing at milestones, deploying, testing, and continuing until done or stuck. Modes: plan (generate roadmap), start (begin executing), resume (continue from where you left off), status (show progress). Triggers: 'roadmap', 'plan the build', 'start building', 'resume the build', 'keep going', 'build the whole thing', 'execute the roadmap', 'what phase are we on'."
+description: "Plan and autonomously build an entire application: generate a phased ROADMAP.md, then execute phase by phase, committing, deploying, and auditing until done or blocked. Modes: plan, start, resume, status. Use for greenfield or multi-session whole-app builds. Triggers: 'roadmap', 'plan the build', 'start/resume building', 'what phase are we on'. To execute an existing task list rather than plan a build, use subagent-driven-development."
 compatibility: claude-code-only
 allowed-tools:
   - Read

@@ -1,6 +1,6 @@
 ---
 name: stitch-design-taste
-description: Semantic Design System Skill for Google Stitch. Generates agent-friendly DESIGN.md files that enforce premium, anti-generic UI standards — strict typography, calibrated color, asymmetric layouts, perpetual micro-motion, and hardware-accelerated performance.
+description: Generate a DESIGN.md design-system spec for Google Stitch (not code). Use only when targeting Stitch screen generation or when the user asks for a Stitch-ready design doc. For shipping actual frontend code, use a code-output design skill instead.
 ---
 
 # Stitch Design Taste — Semantic Design System Skill

@@ -1,6 +1,6 @@
 ---
 name: "SVG Logo Designer"
-description: "Create professional SVG logos from descriptions and design specifications. Generates multiple logo variations with different layouts, styles, and concepts. Produces scalable vector graphics that can be used directly or exported to PNG. Use this skill when users ask to create logos, brand identities, icons, or visual marks for their designs."
+description: "Create SVG (vector) logos as hand-authored code: multiple concepts, layouts, and color variants, with export and usage guidance. Use for \"make a logo / lettermark / wordmark / icon / brand mark\" when a scalable vector file is the deliverable. For a full brand board, use brandkit."
 ---
 
 # SVG Logo Designer

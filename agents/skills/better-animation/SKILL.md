@@ -1,6 +1,6 @@
 ---
 name: better-animation
-description: Motion-engineering skill for web/React frontends. Use whenever a UI needs animation — entry/scroll reveals, hover and press micro-interactions, drawers/modals/command palettes, layout transitions, scroll-driven choreography (pinning, scrubbing, parallax), or continuous motion (pulse/shimmer/marquee). Picks the right tool (CSS vs Motion vs GSAP), enforces motivated motion, GPU-safe properties, spring/custom easing, staggered orchestration, prefers-reduced-motion, and strict cleanup. Triggers: "add animation", "make it animate", "smoother transitions", "scroll animation", "micro-interactions", "the UI feels static/dead", "better animation".
+description: Web and React motion engineering in code: chooses CSS vs Motion vs GSAP, enforces GPU-safe properties, custom easing, spring orchestration, prefers-reduced-motion, and cleanup, with ready-to-use skeletons (drawers, scroll pinning, magnetic hover). Use when implementing animation in a web UI. For naming patterns or non-web runtimes, use animation-vocabulary.
 ---
 
 # Better Animation — Motion Engineering for the Web

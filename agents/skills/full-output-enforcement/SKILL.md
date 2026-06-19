@@ -1,6 +1,6 @@
 ---
 name: full-output-enforcement
-description: Overrides default LLM truncation behavior. Enforces complete code generation, bans placeholder patterns, and handles token-limit splits cleanly. Apply to any task requiring exhaustive, unabridged output.
+description: Behavioral override that bans truncation and placeholder patterns ('// ...', 'rest of code', 'for brevity') and forces complete, unabridged output, with a clean PAUSED then continue protocol at token limits. Use when a task needs every file, component, or section delivered in full and you must prevent the model from abridging.
 ---
 
 # Full-Output Enforcement

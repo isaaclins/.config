@@ -1,6 +1,6 @@
 ---
 name: cold-outreach
-description: Master cold email, LinkedIn, and first-touch prospect outreach. Use when crafting outbound sequences, social touches, or follow-ups that must earn fast responses.
+description: Craft and diagnose cold email, LinkedIn, and first-touch outbound: subject hooks, personalized sequences, multi-channel cadences, and follow-ups. Use when building outbound sequences for a new persona or segment, personalizing cold outreach at scale, diagnosing low open or reply rates, or designing SDR or founder-led follow-up cadences.
 ---
 
 # Cold Outreach Mastery
