@@ -1,7 +1,7 @@
 # ~/.config/fish/functions/ipcheck.fish
 # Purpose: Aggregate IP intelligence (geo, proxy/VPN/Tor/hosting, VirusTotal, AbuseIPDB)
 #          plus a set of per-IP reference links to open in the browser.
-# Usage: ipcheck [-m|--markdown] [-j|--json] [-x|--no-links] [-c|--copy] [ip ...]   (no arg = your own public IP)
+# Usage: ipcheck [-m|--markdown] [-j|--json] [-x|--no-links] [-c|--copy] [ip|domain ...]   (no arg = your own public IP)
 function ipcheck --description 'Aggregate IP intelligence (geo, proxy/VPN/Tor/hosting, VT, AbuseIPDB) + reference links'
     # --- dependencies -----------------------------------------------------
     if not command -q curl
@@ -15,8 +15,11 @@ function ipcheck --description 'Aggregate IP intelligence (geo, proxy/VPN/Tor/ho
 
     # --- help -------------------------------------------------------------
     if contains -- -h $argv; or contains -- --help $argv
-        echo "Usage: ipcheck [-m|--markdown] [-j|--json] [-x|--no-links] [-c|--copy] [ip ...]"
+        echo "Usage: ipcheck [-m|--markdown] [-j|--json] [-x|--no-links] [-c|--copy] [ip|domain ...]"
         echo "       (no arg = your own public IP)"
+        echo
+        echo "Domain/hostname arguments are resolved to their IP address(es) (IPv4"
+        echo "preferred, IPv6 fallback) and each resolved IP is reported separately."
         echo
         echo "Aggregates IP intelligence into a compact report:"
         echo "  - Geolocation (country/region/city/ISP/ASN/reverse) via ip-api.com   [keyless]"
@@ -87,7 +90,12 @@ function ipcheck --description 'Aggregate IP intelligence (geo, proxy/VPN/Tor/ho
     end
 
     # --- resolve target IPs ----------------------------------------------
+    # ips holds the addresses to report; ip_src holds, per entry, the source
+    # domain it was resolved from (empty string for literal-IP / own-IP args).
+    # Both must live in function scope so the loop inside the begin/end > $sink
+    # block can read the matching source for each address.
     set -l ips
+    set -l ip_src
     set -l had_error 0
     set -l json_objs
 
@@ -108,9 +116,32 @@ function ipcheck --description 'Aggregate IP intelligence (geo, proxy/VPN/Tor/ho
             __ipcheck_rst
             echo
         end
-        set ips $myip
+        set -a ips $myip
+        set -a ip_src ""
     else
-        set ips $rest
+        for arg in $rest
+            if __ipcheck_is_ip "$arg"
+                set -a ips $arg
+                set -a ip_src ""
+                continue
+            end
+            # non-IP: treat as a hostname and resolve it
+            if not command -q dig; and not command -q host
+                echo "ipcheck: cannot resolve '$arg' (need 'dig' or 'host' in PATH)" >&2
+                set had_error 1
+                continue
+            end
+            set -l resolved (__ipcheck_resolve "$arg")
+            if test (count $resolved) -eq 0
+                echo "ipcheck: could not resolve '$arg'" >&2
+                set had_error 1
+                continue
+            end
+            for r in $resolved
+                set -a ips $r
+                set -a ip_src $arg
+            end
+        end
     end
 
     # --- choose output sink ----------------------------------------------
@@ -128,27 +159,14 @@ function ipcheck --description 'Aggregate IP intelligence (geo, proxy/VPN/Tor/ho
 
     # --- per-IP report ----------------------------------------------------
     set -l first 1
+    # Index list over $ips; empty when there are no targets (avoids the
+    # platform-dependent `seq 0` which may emit "0" on BSD/macOS).
+    set -l idxs
+    test (count $ips) -gt 0; and set idxs (seq (count $ips))
     begin
-        for ip in $ips
-            # validation: IPv4 (strict octets) or permissive IPv6 heuristic
-            set -l valid 0
-            if string match -rq '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' -- "$ip"
-                set -l ok 1
-                for oct in (string split '.' -- "$ip")
-                    if test "$oct" -gt 255 2>/dev/null
-                        set ok 0
-                    end
-                end
-                test $ok -eq 1; and set valid 1
-            else if string match -rq '^[0-9A-Fa-f:]+:[0-9A-Fa-f:]+$' -- "$ip"
-                set valid 1
-            end
-
-            if test $valid -eq 0
-                echo "ipcheck: invalid IP '$ip'" >&2
-                set had_error 1
-                continue
-            end
+        for idx in $idxs
+            set -l ip $ips[$idx]
+            set -l src $ip_src[$idx]
 
             # separator between blocks
             if test "$out_mode" = pretty
@@ -163,6 +181,7 @@ function ipcheck --description 'Aggregate IP intelligence (geo, proxy/VPN/Tor/ho
             # ---- header rule (fixed ~54 wide) -------------------------------
             if test "$out_mode" = pretty
                 set -l prefix "━━ $ip "
+                test -n "$src"; and set prefix "━━ $ip ($src) "
                 set -l fill (math 54 - (string length -- "$prefix"))
                 test $fill -lt 3; and set fill 3
                 set -l tail (string repeat -n $fill '━')
@@ -616,6 +635,7 @@ function ipcheck --description 'Aggregate IP intelligence (geo, proxy/VPN/Tor/ho
                 echo
                 echo "| Field | Value |"
                 echo "| --- | --- |"
+                test -n "$src"; and echo "| Domain | $src |"
                 echo "| Location | $md_loc |"
                 test -n "$g_isp"; and echo "| ISP | $g_isp |"
                 test -n "$g_org"; and echo "| Org | $g_org |"
@@ -704,18 +724,23 @@ function ipcheck --description 'Aggregate IP intelligence (geo, proxy/VPN/Tor/ho
                 # verdict object
                 set -l j_verdict (command jq -nc --arg level "$verdict_word" --argjson reasons "$j_reasons" \
                     '{level:$level,reasons:$reasons}')
+                # resolvedFrom: the original domain token, or null for literal IPs
+                set -l j_src null
+                if test -n "$src"
+                    set j_src (command jq -nc --arg s "$src" '$s')
+                end
                 # final object (links optional)
                 set -l obj
                 if test $show_links -eq 1
                     set -l j_links (command jq -nc --arg ip "$ip" '{virustotal:("https://www.virustotal.com/gui/ip-address/"+$ip), abuseipdb:("https://www.abuseipdb.com/check/"+$ip), greynoise:("https://viz.greynoise.io/ip/"+$ip), talos:("https://talosintelligence.com/reputation_center/lookup?search="+$ip), torRelay:("https://metrics.torproject.org/rs.html#search/"+$ip), exonerator:("https://metrics.torproject.org/exonerator.html?ip="+$ip), shodan:("https://www.shodan.io/host/"+$ip), censys:("https://search.censys.io/hosts/"+$ip), scamalytics:("https://scamalytics.com/ip/"+$ip), ipinfo:("https://ipinfo.io/"+$ip), bgp:("https://bgp.he.net/ip/"+$ip), blacklists:("https://mxtoolbox.com/SuperTool.aspx?action=blacklist%3a"+$ip+"&run=toolpage")}')
-                    set obj (command jq -nc --arg ip "$ip" --argjson geo "$j_geo" --argjson flags "$j_flags" \
+                    set obj (command jq -nc --arg ip "$ip" --argjson resolvedFrom "$j_src" --argjson geo "$j_geo" --argjson flags "$j_flags" \
                         --argjson virustotal "$j_vt" --argjson abuseipdb "$j_ab" --argjson verdict "$j_verdict" \
                         --argjson links "$j_links" \
-                        '{ip:$ip,geo:$geo,flags:$flags,virustotal:$virustotal,abuseipdb:$abuseipdb,verdict:$verdict,links:$links}')
+                        '{ip:$ip,resolvedFrom:$resolvedFrom,geo:$geo,flags:$flags,virustotal:$virustotal,abuseipdb:$abuseipdb,verdict:$verdict,links:$links}')
                 else
-                    set obj (command jq -nc --arg ip "$ip" --argjson geo "$j_geo" --argjson flags "$j_flags" \
+                    set obj (command jq -nc --arg ip "$ip" --argjson resolvedFrom "$j_src" --argjson geo "$j_geo" --argjson flags "$j_flags" \
                         --argjson virustotal "$j_vt" --argjson abuseipdb "$j_ab" --argjson verdict "$j_verdict" \
-                        '{ip:$ip,geo:$geo,flags:$flags,virustotal:$virustotal,abuseipdb:$abuseipdb,verdict:$verdict}')
+                        '{ip:$ip,resolvedFrom:$resolvedFrom,geo:$geo,flags:$flags,virustotal:$virustotal,abuseipdb:$abuseipdb,verdict:$verdict}')
                 end
                 set -a json_objs $obj
             end
@@ -796,4 +821,66 @@ function __ipcheck_bool_row --no-scope-shadowing
     set_color -o $vcol
     echo "$value"
     set_color normal
+end
+
+# Return 0 if arg is a valid IPv4 (strict octets <=255) or IPv6 (permissive
+# heuristic), 1 otherwise. Same validation semantics as the per-IP loop.
+function __ipcheck_is_ip
+    set -l ip $argv[1]
+    if string match -rq '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' -- "$ip"
+        for oct in (string split '.' -- "$ip")
+            if test "$oct" -gt 255 2>/dev/null
+                return 1
+            end
+        end
+        return 0
+    else if string match -rq '^[0-9A-Fa-f:]+:[0-9A-Fa-f:]+$' -- "$ip"
+        return 0
+    end
+    return 1
+end
+
+# Resolve a hostname to IP(s), one per line, IPv4 preferred (IPv6 fallback).
+# Dedups while preserving order. Prints nothing if resolution fails.
+function __ipcheck_resolve
+    set -l name $argv[1]
+    # light normalization: strip scheme, path and trailing :port
+    set name (string replace -r '^https?://' '' -- "$name")
+    set name (string replace -r '/.*$' '' -- "$name")
+    set name (string replace -r ':[0-9]+$' '' -- "$name")
+
+    set -l v4_re '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'
+    set -l v6_re '^[0-9A-Fa-f:]+:[0-9A-Fa-f:]+$'
+    set -l out
+
+    if command -q dig
+        for line in (command dig +short A "$name" 2>/dev/null)
+            string match -rq $v4_re -- "$line"; and set -a out $line
+        end
+        if test (count $out) -eq 0
+            for line in (command dig +short AAAA "$name" 2>/dev/null)
+                string match -rq $v6_re -- "$line"; and set -a out $line
+            end
+        end
+    else if command -q host
+        for line in (command host -t A "$name" 2>/dev/null)
+            set -l m (string match -r 'has address ([0-9.]+)' -- "$line")
+            test (count $m) -ge 2; and string match -rq $v4_re -- "$m[2]"; and set -a out $m[2]
+        end
+        if test (count $out) -eq 0
+            for line in (command host -t AAAA "$name" 2>/dev/null)
+                set -l m (string match -r 'has IPv6 address ([0-9A-Fa-f:]+)' -- "$line")
+                test (count $m) -ge 2; and string match -rq $v6_re -- "$m[2]"; and set -a out $m[2]
+            end
+        end
+    end
+
+    # dedup, preserve order
+    set -l seen
+    for ip in $out
+        if not contains -- $ip $seen
+            set -a seen $ip
+            echo $ip
+        end
+    end
 end
