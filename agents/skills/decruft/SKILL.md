@@ -1,15 +1,16 @@
 ---
 name: decruft
 description: >-
-  Remove AI-generated clutter from a repository - the stray Markdown and scratch
+  Remove AI-generated clutter from a repository: the stray Markdown and scratch
   artifacts an AI drops in but a human dev would never commit: planning docs,
   audits, "prompt" files, handoff/memory dumps, design-token dumps, phase-by-phase
   execution plans, leftover scaffolding. Subtraction-first: keep only what a human
   would keep, in the form a human would keep it. Always proposes a plan and gets
   confirmation before deleting. Use when the user says "decruft", "deslop the repo",
   "remove the AI .md files", "clean up the AI slop / droppings", "tidy this repo",
-  or points at stray AI-made docs cluttering the project. (For cleaning up AI slop
-  inside CODE, use /deslop instead - this is for repo files/artifacts.)
+  or points at stray AI-made docs cluttering the project. (Scope is stray repo
+  files and artifacts: Markdown, scratch docs, planning files, and leftover
+  scaffolding.)
 ---
 
 # decruft - strip AI droppings from a repo

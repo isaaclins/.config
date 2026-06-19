@@ -1,6 +1,6 @@
 ---
 name: tackle-issue
-description: Resolve a GitHub or GitLab issue end-to-end — understand it, decide whether a change is warranted, implement the smallest in-scope fix, verify with build/tests/lint, then hand over copy-pasteable push + PR/MR commands (only auto-creating the PR/MR if the user explicitly asked). Use when the user says "tackle this issue: <link>", "resolve this issue <url>", or pastes a GitHub/GitLab issue link asking you to fix it. Works for bugs, features, refactors, docs, and questions.
+description: "Resolve a GitHub or GitLab issue end to end: understand it, decide whether a change is warranted, implement the smallest in-scope fix, verify with build/tests/lint, then hand over copy-pasteable push + PR/MR commands (only auto-creating the PR/MR if the user explicitly asked). Use when the user says \"tackle this issue: <link>\", \"resolve this issue <url>\", or pastes a GitHub/GitLab issue link asking you to fix it. Works for bugs, features, refactors, docs, and questions."
 ---
 
 # Tackle Issue
