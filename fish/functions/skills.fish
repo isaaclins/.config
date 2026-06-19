@@ -1,4 +1,4 @@
-function skills --description "Wrapper for `npx skills@latest` that defaults `add`/`remove`/`update`/`list` to --global so installs land in $CLAUDE_CONFIG_DIR (~/.config/agents/claude/skills -> ~/.config/agents/skills) and sync via dotfiles. Pass `--project` (or `-p`) to override and install project-locally."
+function skills --description "Wrapper for `npx skills@latest` that defaults `add`/`remove`/`update`/`list` to --global so installs land in the canonical store (~/.config/agents/skills), which is mirrored to BOTH Claude and Codex automatically via whole-dir symlinks (no separate Codex sync). Pass `--project` (or `-p`) to override and install project-locally."
     set -l args $argv
 
     # Strip a leading `--project` / `-p` so we can use it as an opt-out without

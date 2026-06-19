@@ -38,6 +38,10 @@ agents/**
 !agents/skills
 !agents/skills/**
 
+# Codex built-in skills (.system) live inside the canonical store because codex/skills
+# is a whole-dir symlink; they are Codex-managed and version-specific, so never commit them.
+agents/skills/.system/
+
 # Claude home: only the rules import, settings.json, and custom agent definitions are tracked.
 !agents/claude/
 !agents/claude/CLAUDE.md
