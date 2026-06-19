@@ -1,6 +1,6 @@
 ---
 name: industrial-brutalist-ui
-description: Build new UI in code in one committed lane: Swiss-print plus military-terminal brutalism (monospace, hazard red, hard 90-degree corners, scanlines, halftone, extreme type-scale contrast). Use for "brutalist / terminal / blueprint / declassified / data-heavy raw" looks. Not for premium-smooth or minimalist-warm aesthetics.
+description: "Build new UI in code in the brutalist lane: Swiss-print plus military-terminal aesthetics with monospace type, hazard red, hard 90-degree corners, scanlines, halftone, and extreme type-scale contrast. Use when the user wants a brutalist, terminal, blueprint, declassified, or raw data-heavy look."
 ---
 
 # SKILL: Industrial Brutalism & Tactical Telemetry UI

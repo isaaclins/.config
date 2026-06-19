@@ -1,6 +1,6 @@
 ---
 name: canvas-design
-description: Create static fine-art pieces (posters, art) as .png or .pdf via a design-philosophy-then-canvas process. Use for "poster / art / print piece / design artifact." Not for UI, websites, app screens, or brand-guideline decks.
+description: "Create static fine-art pieces as .png or .pdf via a design-philosophy-then-canvas process. Use when the user wants a standalone poster, print piece, or art artifact delivered as an exported image or PDF document."
 license: Complete terms in LICENSE.txt
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: subagent-driven-development
-description: Execute a written implementation plan by dispatching a fresh subagent per task in the current session, gated by per-task spec-then-quality review. Use when you have an approved plan with mostly independent tasks and want continuous review-checked execution. Sequential, not parallel; for parallel independent work use dispatching-parallel-agents.
+description: "Execute a written implementation plan by dispatching a fresh subagent per task in sequence within the current session, gated by per-task spec-then-quality review. Use when an approved plan exists and you want its tasks worked one at a time with a review gate after each, keeping changes coordinated and conflict-free."
 ---
 
 # Subagent-Driven Development

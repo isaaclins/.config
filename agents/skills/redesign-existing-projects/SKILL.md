@@ -1,6 +1,6 @@
 ---
 name: redesign-existing-projects
-description: Upgrade an existing website or app in place: scan the stack, audit for generic AI patterns, apply premium fixes without breaking functionality (any CSS framework). Use for "redesign / improve / modernize / make this look better" on code that already exists. Not for building new pages from scratch.
+description: "Upgrade an existing website or app in place: scan the stack, audit for generic AI patterns, and apply premium fixes without breaking functionality (any CSS framework). Use when the user wants to redesign, improve, modernize, or make better an interface that already exists in the codebase."
 ---
 
 # Redesign Skill

@@ -1,6 +1,6 @@
 ---
 name: better-animation
-description: Web and React motion engineering in code: chooses CSS vs Motion vs GSAP, enforces GPU-safe properties, custom easing, spring orchestration, prefers-reduced-motion, and cleanup, with ready-to-use skeletons (drawers, scroll pinning, magnetic hover). Use when implementing animation in a web UI. For naming patterns or non-web runtimes, use animation-vocabulary.
+description: "Web and React motion engineering in code: chooses CSS vs Motion vs GSAP, enforces GPU-safe properties, custom easing, spring orchestration, prefers-reduced-motion, and cleanup, with ready-to-use skeletons (drawers, scroll pinning, magnetic hover). Use when implementing and shipping animation as working web or React code."
 ---
 
 # Better Animation — Motion Engineering for the Web

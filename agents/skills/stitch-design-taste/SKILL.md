@@ -1,6 +1,6 @@
 ---
 name: stitch-design-taste
-description: Generate a DESIGN.md design-system spec for Google Stitch (not code). Use only when targeting Stitch screen generation or when the user asks for a Stitch-ready design doc. For shipping actual frontend code, use a code-output design skill instead.
+description: "Generate a DESIGN.md design-system specification for Google Stitch. Use when the user is targeting Stitch screen generation or asks for a Stitch-ready design document, where the deliverable is the spec itself rather than running code."
 ---
 
 # Stitch Design Taste — Semantic Design System Skill

@@ -1,6 +1,6 @@
 ---
 name: mega-goal-prompt
-description: "Interview the user one question at a time, then emit a paste-ready /goal mega prompt (outcome, context, success criteria, constraints, char-budget enforced). Use when the user wants Claude or Codex to run a long task autonomously and asks to 'write a goal', 'set a /goal', or 'run this autonomously'. This produces a prompt; it does not execute. To actually drive a whole-app build, use roadmap."
+description: "Interview the user one question at a time, then emit a paste-ready /goal mega prompt (outcome, context, success criteria, constraints, char-budget enforced). Use when the user wants to author a goal for an autonomous run and says 'write a goal', 'set a /goal', or 'run this autonomously'. It produces the prompt text for the user to paste, not an executed task."
 ---
 
 # Mega-Goal Prompt Generator

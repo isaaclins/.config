@@ -1,6 +1,6 @@
 ---
 name: image-to-code
-description: Image-first then build: generate per-section website design images, analyze them, then implement the matching frontend in code (Codex-oriented). Use when the user wants a finished site and visual fidelity matters. If they want only reference images, use imagegen-frontend-web instead.
+description: "Image-first then build: generate per-section website design images, analyze them, then implement the matching frontend in code (Codex-oriented). Use when the user wants a finished, built website whose code closely matches a generated visual design."
 ---
 
 # CORE DIRECTIVE: IMAGE-FIRST WEBSITE DESIGN TO CODE
