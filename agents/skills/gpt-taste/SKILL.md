@@ -1,6 +1,6 @@
 ---
 name: gpt-taste
-description: Build new UI in code with RNG-driven layout variance, strict AIDA structure, and GSAP-first scroll cinematics (pinning, scrubbing, inline-image headlines, 2-line hero rule). Use for motion-heavy, award-style scrollytelling sites. Pick design-taste-frontend for general builds, better-animation for adding motion to existing UI.
+description: "Build new UI in code with RNG-driven layout variance, strict AIDA structure, and GSAP-first scroll cinematics (pinning, scrubbing, inline-image headlines, 2-line hero rule). Use when building a motion-heavy, award-style scrollytelling site where dramatic scroll choreography is the centerpiece."
 ---
 
 # CORE DIRECTIVE: AWWWARDS-LEVEL DESIGN ENGINEERING

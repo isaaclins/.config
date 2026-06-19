@@ -1,6 +1,6 @@
 ---
 name: imagegen-frontend-mobile
-description: Generate mobile app screen and flow images in clean phone mockups (iOS/Android/cross-platform), image-only, no code. Use for app onboarding, dashboards, multi-screen flows. For desktop or website comps use imagegen-frontend-web.
+description: "Generate mobile app screen and flow images in clean phone mockups (iOS/Android/cross-platform), image-only, no code. Use when the user wants visual mockups of app screens such as onboarding, dashboards, or multi-screen flows to look at or hand off."
 ---
 
 # CORE DIRECTIVE: PREMIUM MOBILE APP IMAGE DIRECTION

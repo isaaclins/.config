@@ -1,6 +1,6 @@
 ---
 name: animation-vocabulary
-description: Cross-platform catalogue of ~90 named motion patterns (fade, stagger, parallax, spring, FLIP, marquee, and more), each with a perceptual cue and use cases, plus a CSS/Motion/SwiftUI/Compose/Flutter translation table. Use to pick and name the right pattern on any runtime. For writing the actual web or React code, use better-animation.
+description: "Cross-platform catalogue of ~90 named motion patterns (fade, stagger, parallax, spring, FLIP, marquee, and more), each with a perceptual cue and use cases, plus a CSS/Motion/SwiftUI/Compose/Flutter translation table. Use to identify and name the right motion pattern for any runtime when choosing or describing an animation rather than writing its code."
 ---
 
 # animation-vocabulary

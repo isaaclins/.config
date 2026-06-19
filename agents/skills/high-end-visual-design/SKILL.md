@@ -1,6 +1,6 @@
 ---
 name: high-end-visual-design
-description: Build new UI in code in one committed lane: luxury "$150k agency," Apple/Linear-tier polish (nested double-bezel cards, button-in-button CTAs, fluid-island nav, cinematic motion). Use when the user wants "expensive," "premium agency," "Awwwards," or "Apple-like." Not for minimalist, brutalist, or existing-site redesigns.
+description: "Build new UI in code in the luxury agency lane: Apple/Linear-tier polish with nested double-bezel cards, button-in-button CTAs, fluid-island nav, and cinematic motion. Use when the user wants an expensive, premium-agency, Awwwards, or Apple-like look for a new build."
 ---
 
 # Agent Skill: Principal UI/UX Architect & Motion Choreographer (Awwwards-Tier)

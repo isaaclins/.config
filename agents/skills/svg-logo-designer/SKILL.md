@@ -1,6 +1,6 @@
 ---
 name: "SVG Logo Designer"
-description: "Create SVG (vector) logos as hand-authored code: multiple concepts, layouts, and color variants, with export and usage guidance. Use for \"make a logo / lettermark / wordmark / icon / brand mark\" when a scalable vector file is the deliverable. For a full brand board, use brandkit."
+description: "Create SVG (vector) logos as hand-authored code: multiple concepts, layouts, and color variants, with export and usage guidance. Use when the user wants a single logo, lettermark, wordmark, icon, or brand mark delivered as a scalable vector file."
 ---
 
 # SVG Logo Designer

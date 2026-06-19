@@ -1,6 +1,6 @@
 ---
 name: brandkit
-description: Generate premium brand-identity images: logo systems, guideline boards, identity decks, mockup grids. Use for "brand kit / identity / logo system / brand board / guidelines deck." For a single vector logo use svg-logo-designer; for website-page comps use imagegen-frontend-web; for art posters use canvas-design.
+description: "Generate premium brand-identity image sets: full logo systems, brand-guideline boards, identity decks, and product mockup grids. Use when the user wants a cohesive brand kit, identity system, brand board, or guidelines deck spanning multiple coordinated visual assets."
 ---
 
 # BRANDKIT IMAGE GENERATION SKILL

@@ -1,6 +1,6 @@
 ---
 name: deslop
-description: Clean AI-generated slop inside code on the current branch (diff vs main): redundant or inconsistent comments, defensive try/catch in trusted paths, `any` casts used to dodge types, needless deep nesting. Behavior-preserving, minimal edits. Use for 'deslop', 'clean up the AI code style', or 'remove slop from this branch'. For removing stray AI files (PLAN.md, audits, prompt dumps), use decruft instead.
+description: "Clean AI-generated slop inside source code on the current branch (diff vs main): redundant or inconsistent comments, defensive try/catch in trusted paths, `any` casts used to dodge types, needless deep nesting. Behavior-preserving, minimal edits. Use when the user says 'deslop', 'clean up the AI code style', or wants the slop removed from code on this branch."
 ---
 
 # Remove AI code slop

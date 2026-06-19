@@ -1,6 +1,6 @@
 ---
 name: create-frontend-concepts
-description: Orchestrator: spin up 5 to 8 parallel agents, each using a different design skill and aesthetic lane, then publish an A/B-test gallery. Use for "explore directions / spin up agents / A/B test designs / several concepts to choose from." It invokes the other design skills; it is not itself a single-page builder.
+description: "Orchestrator that spins up 5 to 8 parallel agents, each producing a different aesthetic direction, then publishes an A/B-test gallery linking them all. Use when the user wants several distinct design directions to compare, asks to explore directions, spin up agents, or A/B test multiple concepts at once."
 ---
 
 # create-frontend-concepts

@@ -1,6 +1,6 @@
 ---
 name: imagegen-frontend-web
-description: Generate website design-reference images, one horizontal image per section (no code). Use when the user wants visual landing-page or marketing comps to look at or hand off. If they also want the site built to match, use image-to-code; for mobile screens use imagegen-frontend-mobile.
+description: "Generate desktop website design-reference images, one horizontal image per section, image-only with no code. Use when the user wants visual landing-page or marketing-site comps to review or hand off to a developer, rather than built code."
 ---
 
 # HARD OUTPUT RULE — READ FIRST
