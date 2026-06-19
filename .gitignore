@@ -26,21 +26,59 @@ browseruse/extensions
 # credentials (commands with `--token=...`, Authorization headers, env pastes).
 **/*.log
 
-# Claude Code config dir ($CLAUDE_CONFIG_DIR): never commit credentials, session
-# history, caches, plugin state, etc. Allow only skills by default; un-ignore
-# more paths (settings.json, agents/, commands/, hooks/) deliberately by hand.
+# Shared agents umbrella (~/.config/agents): one canonical AGENTS.md + skills store,
+# plus a private home per tool (claude/, codex/). Track ONLY the deliberate config;
+# ignore every runtime artifact (credentials, auth, sessions, caches, sqlite, logs).
+
+# Default-ignore everything under the umbrella, then un-ignore the tracked bits.
+agents/**
+
+# Shared, tracked content.
+!agents/AGENTS.md
+!agents/skills
+!agents/skills/**
+
+# Claude home: only the rules import and settings.json are tracked.
+!agents/claude/
+!agents/claude/CLAUDE.md
+!agents/claude/settings.json
+
+# Codex home: only config.toml is tracked.
+!agents/codex/
+!agents/codex/config.toml
+
+# Re-ignore the consumer symlinks and secrets that the un-ignores above could expose.
+agents/claude/skills
+agents/codex/skills
+agents/codex/skills/**
+agents/codex/AGENTS.md
+
+# Defensive secret/runtime guards anywhere under the umbrella (and the skills store).
+agents/**/.DS_Store
+agents/**/credentials*
+agents/**/.claude.json
+agents/**/auth.json
+agents/**/history.jsonl
+agents/**/*.sqlite
+agents/**/*.sqlite-*
+agents/**/*.pem
+agents/**/*.key
+
+# Retired Claude home (~/.config/claude): still on disk with secrets until the user
+# deletes it. Keep the whole tree ignored — nothing here is tracked anymore.
 claude/**
-!claude/skills
-!claude/skills/**
-!claude/agents
-!claude/agents/**
-!claude/commands
-!claude/commands/**
-!claude/hooks
-!claude/hooks/**
-!claude/settings.json
 claude/**/.DS_Store
 claude/**/credentials*
 claude/**/.claude.json
+claude/**/auth.json
 claude/**/*.pem
 claude/**/*.key
+
+# Never commit pre-migration backups or moved-aside umbrella backups.
+claude-premigration-backup.tgz
+*.bak-*/
+*.botched.bak-*/
+agents.botched.bak-*/
+
+# Out of scope, never tracked.
+code-server/
