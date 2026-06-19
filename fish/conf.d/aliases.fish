@@ -7,7 +7,6 @@ abbr -a cls 'clear && clear'
 
 abbr -a fmt "prettier . --write"
 
-abbr -a cc 'caffeinate -dis claude --dangerously-skip-permissions'
 abbr -a oc 'ollama launch claude '
 abbr -a checkup 'command ls -lt ~/.claude/sleep-log/ | head'
 
