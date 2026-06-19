@@ -1,6 +1,6 @@
 ---
 name: design-taste-frontend
-description: "General-purpose anti-slop UI builder for new landing pages, portfolios, and marketing sites in code. It reads the brief, sets variance/motion/density dials, and picks a real design system. Use when building a new frontend and the user wants strong default taste without specifying a particular visual style."
+description: "Default anti-slop UI builder for new landing pages, portfolios, and marketing sites in code. Reads the brief, sets variance/motion/density dials, and picks a real design system to fit the brand. Use as the go-to frontend builder when the user describes the product or audience but names no specific aesthetic lane to follow."
 ---
 
 # tasteskill: Anti-Slop Frontend Skill
