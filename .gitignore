@@ -49,6 +49,14 @@ agents/skills/.system/
 !agents/claude/agents/
 !agents/claude/agents/**
 
+# Repo-cache hook scripts (CLAUDE.local.md maintenance). Track only these scripts,
+# not the runtime artifacts the hooks dir also holds (logs stay ignored via **/*.log).
+!agents/claude/hooks/
+!agents/claude/hooks/cache-lib.sh
+!agents/claude/hooks/cache-on-session-start.sh
+!agents/claude/hooks/cache-on-stop.sh
+!agents/claude/hooks/cache-refresh-worker.sh
+
 # Re-ignore the consumer symlinks and secrets that the un-ignores above could expose.
 agents/claude/skills
 agents/codex/skills
