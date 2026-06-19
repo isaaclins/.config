@@ -2,6 +2,9 @@
   "permissions": {
     "defaultMode": "auto"
   },
+  "env": {
+    "CLAUDE_CODE_NO_FLICKER": "1"
+  },
   "enabledPlugins": {
     "swift-lsp@claude-plugins-official": true,
     "clangd-lsp@claude-plugins-official": true
@@ -14,5 +17,14 @@
   "remoteControlAtStartup": true,
   "inputNeededNotifEnabled": true,
   "agentPushNotifEnabled": true,
-  "skipAutoPermissionPrompt": true
+  "skipAutoPermissionPrompt": true,
+  "hooks": {
+    "Notification": [
+      {
+        "hooks": [
+          { "type": "command", "command": "afplay /System/Library/Sounds/Glass.aiff" }
+        ]
+      }
+    ]
+  }
 }
