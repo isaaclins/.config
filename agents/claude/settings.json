@@ -2,6 +2,11 @@
   "permissions": {
     "defaultMode": "auto"
   },
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
+  },
   "env": {
     "CLAUDE_CODE_NO_FLICKER": "1"
   },
@@ -9,6 +14,50 @@
     "swift-lsp@claude-plugins-official": true,
     "clangd-lsp@claude-plugins-official": true
   },
+  "companyAnnouncements": [
+    "Welcome back, Isaac. Let's build something clean.",
+    "Hola otra vez, Isaac. A darle.",
+    "Willkommen zurück, Isaac. Auf geht's.",
+    "Bentornato, Isaac. Si parte.",
+    "Benvido de novo, Isaac. Imos alá.",
+    "Bon retour, Isaac. C'est parti.",
+    "Hoi Isaac, schön bisch wider da.",
+    "Bem-vindo de volta, Isaac. Vamos nessa.",
+    "Benvingut de nou, Isaac. Som-hi.",
+    "Welkom terug, Isaac. Aan de slag.",
+    "Salve iterum, Isaac. Ad opus.",
+    "Bine ai revenit, Isaac. Hai sa incepem.",
+    "Witaj z powrotem, Isaac. Do dziela.",
+    "Vitej zpet, Isaac. Jdeme na to.",
+    "Vitaj naspät, Isaac. Pustime sa do toho.",
+    "Välkommen tillbaka, Isaac. Nu kör vi.",
+    "Velkommen tilbake, Isaac. Na kjorer vi.",
+    "Velkommen tilbage, Isaac. Lad os komme i gang.",
+    "Tervetuloa takaisin, Isaac. Aloitetaan.",
+    "Velkominn aftur, Isaac. Byrjum.",
+    "Kalos irthes pali, Isaac. Xekiname.",
+    "S vozvrashcheniem, Isaac. Poekhali.",
+    "Z povernenniam, Isaac. Pochnemo.",
+    "Tekrar hos geldin, Isaac. Baslayalim.",
+    "Udv ujra, Isaac. Vagjunk bele.",
+    "Dobro dosao natrag, Isaac. Idemo.",
+    "Selamat datang kembali, Isaac. Ayo mulai.",
+    "Maligayang pagbabalik, Isaac. Simulan na natin.",
+    "Chao mung tro lai, Isaac. Bat dau thoi.",
+    "Karibu tena, Isaac. Twende.",
+    "Failte ar ais, Isaac. Tosaimid.",
+    "Croeso nol, Isaac. Awn ati.",
+    "Bonvenon denove, Isaac. Ni komencu.",
+    "أهلا بعودتك يا Isaac. لنبدأ.",
+    "ברוך שובך, Isaac. בוא נתחיל.",
+    "वापसी पर स्वागत है, Isaac। चलिए शुरू करें।",
+    "おかえり、Isaac。さあ始めよう。",
+    "다시 와서 반가워, Isaac. 시작하자.",
+    "欢迎回来，Isaac。开始吧。",
+    "歡迎回來，Isaac。我們開始吧。",
+    "ยินดีต้อนรับกลับมา Isaac เริ่มกันเลย",
+    "nuqneH, Isaac. maHvaD Qu' wIta'."
+  ],
   "effortLevel": "xhigh",
   "skipDangerousModePermissionPrompt": true,
   "theme": "dark",
@@ -18,11 +67,30 @@
   "inputNeededNotifEnabled": true,
   "agentPushNotifEnabled": true,
   "skipAutoPermissionPrompt": true,
+  "statusLine": {
+    "type": "command",
+    "command": "/Users/taaliis4/.config/agents/claude/statusline.sh",
+    "padding": 0
+  },
   "hooks": {
     "Notification": [
       {
         "hooks": [
           { "type": "command", "command": "afplay /System/Library/Sounds/Glass.aiff" }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "\"$HOME/.config/agents/claude/hooks/cache-on-session-start.sh\"" }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "\"$HOME/.config/agents/claude/hooks/cache-on-stop.sh\"", "async": true }
         ]
       }
     ]
