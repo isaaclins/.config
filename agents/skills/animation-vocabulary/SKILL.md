@@ -1,6 +1,6 @@
 ---
 name: animation-vocabulary
-description: Authoritative motion vocabulary for UI work. Pick a named pattern (with its Watch-for cue and Use-cases) instead of inventing freeform motion. TRIGGER when the user asks to animate, add/refine motion, or names any pattern (fade, slide, pop, stagger, parallax, shimmer, ripple, spring, scroll reveal, marquee, morph, FLIP, ease-out, etc.); when the user references "Watch for" or "Use cases" framing; when the user invokes `/animation-vocabulary`; and proactively whenever you're building or editing a UI and a listed Use case applies. Framework- and language-agnostic — applies to CSS, Tailwind, Framer Motion, GSAP, SwiftUI, Jetpack Compose, Flutter, Compose Multiplatform, UIKit, AppKit, Qt, web/native/desktop/mobile alike. GSAP tips are illustrative; translate to the active stack.
+description: Cross-platform catalogue of ~90 named motion patterns (fade, stagger, parallax, spring, FLIP, marquee, and more), each with a perceptual cue and use cases, plus a CSS/Motion/SwiftUI/Compose/Flutter translation table. Use to pick and name the right pattern on any runtime. For writing the actual web or React code, use better-animation.
 ---
 
 # animation-vocabulary

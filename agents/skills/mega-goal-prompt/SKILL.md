@@ -1,14 +1,6 @@
 ---
 name: mega-goal-prompt
-description: >
-  Generate a /goal mega prompt for Claude Code or Codex CLI by interviewing the user about their task.
-  Use when the user wants to define a long-horizon autonomous goal — migration, refactor, feature build,
-  optimization loop, test fixing, research project, learning system, or any task where the agent should
-  run end-to-end without hand-holding. Trigger on: "help me write a goal", "I want Claude to keep working
-  until...", "run this autonomously", "set a /goal", or any request that implies sustained agentic execution
-  toward a non-trivial outcome. The skill conducts a structured interview (one question at a time) to extract
-  outcome, context, success criteria, constraints, and quality bar — then outputs a filled-in mega prompt
-  ready to paste into Claude Code or Codex.
+description: "Interview the user one question at a time, then emit a paste-ready /goal mega prompt (outcome, context, success criteria, constraints, char-budget enforced). Use when the user wants Claude or Codex to run a long task autonomously and asks to 'write a goal', 'set a /goal', or 'run this autonomously'. This produces a prompt; it does not execute. To actually drive a whole-app build, use roadmap."
 ---
 
 # Mega-Goal Prompt Generator

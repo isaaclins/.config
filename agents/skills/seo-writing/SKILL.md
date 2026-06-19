@@ -1,6 +1,6 @@
 ---
 name: seo-writing
-description: Use when planning or drafting search-optimized content that balances keyword intent with GTM messaging.
+description: Plan and draft search-optimized content: keyword intent mapping, SERP gap analysis, on-page optimization (titles, meta, headings, schema, internal links), and conversion hooks. Use when writing pillar or blog content for a target keyword, building SEO briefs for writers, or auditing existing posts for ranking opportunities.
 ---
 
 # SEO Writing Skill
