@@ -14,7 +14,7 @@
         "elapsed": "█",
         "total": "░"
       },
-      "width": 10
+      "width": 12
     },
     "constants": [
       "\u001b[0m                                                       \u001b[55D"
@@ -23,17 +23,22 @@
   "modules": [
     {
       "type": "custom",
-      "format": "\u001b[34m╭──────────────────────── Host ────────────────────────╮\u001b[0m"
+      "format": "\u001b[38;2;137;180;250m╭──────────────────────── HOST ────────────────────────╮\u001b[0m"
     },
     {
       "type": "title",
-      "key": "{$1}\u001b[34m  USERNAME\u001b[0m",
+      "key": "{$1}\u001b[38;2;137;180;250m    USER\u001b[0m",
       "format": "{user-name}"
     },
     {
+      "type": "host",
+      "key": "{$1}\u001b[38;2;137;180;250m  󰌢  MACHINE\u001b[0m",
+      "format": "{name}"
+    },
+    {
       "type": "localip",
-      "key": "{$1}\u001b[34m  HOST IP\u001b[0m",
-      "format": "                      {ipv4}",
+      "key": "{$1}\u001b[38;2;137;180;250m  󰩟  LOCAL IP\u001b[0m",
+      "format": "{ipv4}",
       "showIpv4": true,
       "showIpv6": false,
       "showPrefixLen": false,
@@ -43,127 +48,237 @@
     },
     {
       "type": "custom",
-      "format": "\u001b[34m╰──────────────────────────────────────────────────────╯\u001b[0m"
+      "format": "\u001b[38;2;137;180;250m╰──────────────────────────────────────────────────────╯\u001b[0m"
     },
     "break",
     {
       "type": "custom",
-      "format": "\u001b[32m╭────────────────────── Hardware ──────────────────────╮\u001b[0m"
+      "format": "\u001b[38;2;148;226;213m╭────────────────────── HARDWARE ──────────────────────╮\u001b[0m"
+    },
+    {
+      "type": "cpu",
+      "key": "{$1}\u001b[38;2;148;226;213m  󰻠  CPU\u001b[0m",
+      "format": "{name}"
     },
     {
       "type": "cpuusage",
-      "key": "{$1}\u001b[32m CPU\u001b[0m",
-      "format": "                    {avg-bar}",
+      "key": "{$1}\u001b[38;2;148;226;213m  󰓅  LOAD\u001b[0m",
+      "format": "{avg-bar}",
       "percent": {
-        "type": ["bar"],
-        "green": 30,
-        "yellow": 70
+        "type": [
+          "bar"
+        ],
+        "green": 50,
+        "yellow": 80
       }
     },
     {
       "type": "cpuusage",
-      "key": "{$1}\u001b[32m    > USAGE\u001b[0m",
-      "format": "                         [{avg}]"
+      "key": "{$1}\u001b[38;2;166;173;200m   └ usage\u001b[0m",
+      "format": "{avg}"
+    },
+    {
+      "type": "gpu",
+      "key": "{$1}\u001b[38;2;148;226;213m  󰢮  GPU\u001b[0m",
+      "format": "{name}  {frequency}"
     },
     {
       "type": "memory",
-      "key": "{$1}\u001b[32m MEMORY\u001b[0m",
-      "format": "                    {percentage-bar}",
+      "key": "{$1}\u001b[38;2;148;226;213m  󰍛  MEMORY\u001b[0m",
+      "format": "{percentage-bar}",
       "percent": {
-        "type": ["bar"],
-        "green": 30,
-        "yellow": 70
+        "type": [
+          "bar"
+        ],
+        "green": 50,
+        "yellow": 80
       }
     },
     {
       "type": "memory",
-      "key": "{$1}\u001b[32m    > USAGE\u001b[0m",
-      "format": "{used} / {total}    [{percentage}]"
+      "key": "{$1}\u001b[38;2;166;173;200m   └ used\u001b[0m",
+      "format": "{used} / {total}"
     },
     {
-      "type": "command",
-      "key": "{$1}\u001b[32m BATTERY\u001b[0m",
-      "shell": "/bin/sh",
-      "param": "-c",
-      "text": "perc=$(pmset -g batt | grep -Eo '[0-9]+%' | head -n1 | tr -d '%'); [ -n \"$perc\" ] || perc=0; python3 -c \"import math; width=10; perc=$perc; filled=int(round(width*perc/100)); filled=max(0, min(width, filled)); bar='░'*(width-filled)+'█'*filled; print(bar, end='')\" | rev",
-      "format": "{$1}\u001b[32m                    {result} \u001b[0m"
+      "type": "swap",
+      "key": "{$1}\u001b[38;2;148;226;213m  󰓡  SWAP\u001b[0m",
+      "format": "{used} / {total}"
     },
     {
       "type": "battery",
-      "key": "{$1}\u001b[32m    > USAGE\u001b[0m",
-      "format": "[{status}]            [{capacity}]{?status}{?}"
+      "key": "{$1}\u001b[38;2;148;226;213m  󰂄  BATTERY\u001b[0m",
+      "format": "{capacity-bar}",
+      "percent": {
+        "type": [
+          "bar"
+        ],
+        "green": 60,
+        "yellow": 30
+      }
+    },
+    {
+      "type": "battery",
+      "key": "{$1}\u001b[38;2;166;173;200m   └ status\u001b[0m",
+      "format": "{capacity}  ({status})"
     },
     {
       "type": "disk",
-      "key": "{$1}\u001b[32m DISKSPACE\u001b[0m",
-      "format": "{size-used} / {size-total}  [{size-percentage}]",
+      "key": "{$1}\u001b[38;2;148;226;213m  󰋊  DISK\u001b[0m",
+      "format": "{size-percentage-bar}",
+      "folders": "/",
+      "percent": {
+        "type": [
+          "bar"
+        ],
+        "green": 50,
+        "yellow": 80
+      }
+    },
+    {
+      "type": "disk",
+      "key": "{$1}\u001b[38;2;166;173;200m   └ used\u001b[0m",
+      "format": "{size-used} / {size-total}",
       "folders": "/"
     },
     {
       "type": "custom",
-      "format": "\u001b[32m╰──────────────────────────────────────────────────────╯\u001b[0m"
+      "format": "\u001b[38;2;148;226;213m╰──────────────────────────────────────────────────────╯\u001b[0m"
     },
     "break",
     {
       "type": "custom",
-      "format": "\u001b[35m╭────────────────────── Software ──────────────────────╮\u001b[0m"
+      "format": "\u001b[38;2;250;179;135m╭────────────────────── NETWORK ───────────────────────╮\u001b[0m"
+    },
+    {
+      "type": "wifi",
+      "key": "{$1}\u001b[38;2;250;179;135m  󰖩  WI-FI\u001b[0m",
+      "format": "{ssid}  ({signal-quality})"
+    },
+    {
+      "type": "wifi",
+      "key": "{$1}\u001b[38;2;166;173;200m   └ link\u001b[0m",
+      "format": "{protocol}  /  {security}"
+    },
+    {
+      "type": "localip",
+      "key": "{$1}\u001b[38;2;250;179;135m  󰒍  GATEWAY\u001b[0m",
+      "format": "{ipv4}",
+      "showIpv4": true,
+      "showIpv6": false,
+      "showPrefixLen": false,
+      "showMac": false,
+      "defaultRouteOnly": true,
+      "compact": true
+    },
+    {
+      "type": "publicip",
+      "key": "{$1}\u001b[38;2;250;179;135m  󰩠  PUBLIC IP\u001b[0m",
+      "format": "{ip}",
+      "timeout": 2000
+    },
+    {
+      "type": "weather",
+      "key": "{$1}\u001b[38;2;250;179;135m  󰖐  WEATHER\u001b[0m",
+      "timeout": 2000
+    },
+    {
+      "type": "bluetooth",
+      "key": "{$1}\u001b[38;2;250;179;135m  󰂯  DEVICE\u001b[0m",
+      "format": "{?battery-percentage}{name}  [{battery-percentage}]{?}"
+    },
+    {
+      "type": "custom",
+      "format": "\u001b[38;2;250;179;135m╰──────────────────────────────────────────────────────╯\u001b[0m"
+    },
+    "break",
+    {
+      "type": "custom",
+      "format": "\u001b[38;2;203;166;247m╭────────────────────── SOFTWARE ──────────────────────╮\u001b[0m"
     },
     {
       "type": "os",
-      "key": "{$1}\u001b[35m OS\u001b[0m",
+      "key": "{$1}\u001b[38;2;203;166;247m    OS\u001b[0m",
       "format": "{name}{?codename} {codename}{?} ({version})"
     },
     {
+      "type": "kernel",
+      "key": "{$1}\u001b[38;2;203;166;247m  󰣇  KERNEL\u001b[0m",
+      "format": "{sysname} {release}"
+    },
+    {
       "type": "command",
-      "key": "{$1}\u001b[35m TERMINAL\u001b[0m",
+      "key": "{$1}\u001b[38;2;203;166;247m    TERMINAL\u001b[0m",
       "shell": "/bin/sh",
       "param": "-c",
-      "text": "term=${TERM_PROGRAM:-${TERM:-unknown}}; shell=$(basename \"$SHELL\" 2>/dev/null || echo shell); printf '%s / %s' \"$term\" \"$shell\"",
+      "text": "printf '%s' \"${TERM_PROGRAM:-${TERM:-unknown}}\"",
       "format": "{result}"
     },
     {
-      "type": "title",
-      "key": "{$1}\u001b[35m SHELL DIRECTORY\u001b[0m",
-      "format": "{user-shell} "
+      "type": "shell",
+      "key": "{$1}\u001b[38;2;203;166;247m    SHELL\u001b[0m",
+      "format": "{pretty-name} {version}"
     },
     {
       "type": "packages",
-      "key": "{$1}\u001b[35m BREW\u001b[0m",
-      "format": "{brew-all} pkgs",
+      "key": "{$1}\u001b[38;2;203;166;247m  󰏖  PACKAGES\u001b[0m",
+      "format": "{brew-all} (brew)",
       "combined": true
     },
     {
-      "type": "media",
-      "key": "{$1}\u001b[35m LISTENING TO\u001b[0m",
-      "format": "{?combined}{combined}{?}{/combined}<media>{/}"
+      "type": "locale",
+      "key": "{$1}\u001b[38;2;203;166;247m  󰗊  LOCALE\u001b[0m"
     },
     {
       "type": "sound",
-      "key": "{$1}\u001b[35m SOUND OUTPUT/VOLUME\u001b[0m",
+      "key": "{$1}\u001b[38;2;203;166;247m  󰕾  SOUND\u001b[0m",
       "soundType": "main",
       "format": "{name}{?volume-percentage}  /  [{volume-percentage}]{?}"
     },
     {
+      "type": "media",
+      "key": "{$1}\u001b[38;2;203;166;247m  󰝚  PLAYING\u001b[0m",
+      "format": "{?combined}{combined}{?}{/combined}<media>{/}"
+    },
+    {
       "type": "uptime",
-      "key": "{$1}\u001b[35m UPTIME\u001b[0m",
-      "format": "{days} days, {hours} hours and {minutes} minutes"
+      "key": "{$1}\u001b[38;2;203;166;247m  󰅐  UPTIME\u001b[0m",
+      "format": "{?days}{days}d {?}{hours}h {minutes}m"
     },
     {
       "type": "custom",
-      "format": "\u001b[35m╰──────────────────────────────────────────────────────╯\u001b[0m"
+      "format": "\u001b[38;2;203;166;247m╰──────────────────────────────────────────────────────╯\u001b[0m"
     },
     "break",
     {
       "type": "custom",
-      "format": "\u001b[35m╭───────────────────── SIGNATURE ─────────────────────╮\u001b[0m"
+      "format": "\u001b[38;2;249;226;175m╭──────────────────────── TIME ────────────────────────╮\u001b[0m"
+    },
+    {
+      "type": "datetime",
+      "key": "{$1}\u001b[38;2;249;226;175m  󰃭  DATE\u001b[0m",
+      "format": "{weekday}, {day-pretty}.{month-pretty}.{year}"
+    },
+    {
+      "type": "datetime",
+      "key": "{$1}\u001b[38;2;249;226;175m  󰥔  CLOCK\u001b[0m",
+      "format": "{hour}:{minute}"
     },
     {
       "type": "custom",
-      "format": "                       ~ ⋖,^><"
+      "format": "\u001b[38;2;249;226;175m╰──────────────────────────────────────────────────────╯\u001b[0m"
+    },
+    "break",
+    {
+      "type": "custom",
+      "format": "\u001b[38;2;245;194;231m╭───────────────────── SIGNATURE ──────────────────────╮\u001b[0m"
     },
     {
       "type": "custom",
-      "format": "\u001b[35m╰─────────────────────────────────────────────────────╯\u001b[0m"
+      "format": "\u001b[38;2;245;194;231m                       ~ ⋖,^><\u001b[0m"
+    },
+    {
+      "type": "custom",
+      "format": "\u001b[38;2;245;194;231m╰──────────────────────────────────────────────────────╯\u001b[0m"
     }
   ]
 }
