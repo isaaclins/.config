@@ -1,6 +1,6 @@
 ---
 name: goodnight
-description: Use ONLY when the user has explicitly signaled this Claude Code session is over — they're going to bed, signing off, want CC to exit, or typed `/goodnight`. Triggering phrases: "g'night", "goodnight", "going to sleep", "bye claude", "we're done for tonight", "exit", "/goodnight", "wrap it up I'm out", or similar end-of-session cues. Do NOT invoke just because a task or goal is complete — wait for the user's explicit end-of-session signal. Sends SIGTERM to the parent `claude` process so a wrapping `caffeinate` (or similar sleep-preventer) releases its hold and the Mac is allowed to sleep per Energy Saver.
+description: "Use ONLY when the user has explicitly signaled this Claude Code session is over: they're going to bed, signing off, want CC to exit, or typed `/goodnight`. Triggering phrases: \"g'night\", \"goodnight\", \"going to sleep\", \"bye claude\", \"we're done for tonight\", \"exit\", \"/goodnight\", \"wrap it up I'm out\", or similar end-of-session cues. Do NOT invoke just because a task or goal is complete; wait for the user's explicit end-of-session signal. Sends SIGTERM to the parent `claude` process so a wrapping `caffeinate` (or similar sleep-preventer) releases its hold and the Mac is allowed to sleep per Energy Saver."
 ---
 
 # Goodnight
