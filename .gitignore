@@ -49,10 +49,6 @@ agents/skills/.system/
 !agents/claude/agents/
 !agents/claude/agents/**
 
-# Codex home: only config.toml is tracked.
-!agents/codex/
-!agents/codex/config.toml
-
 # Re-ignore the consumer symlinks and secrets that the un-ignores above could expose.
 agents/claude/skills
 agents/codex/skills
