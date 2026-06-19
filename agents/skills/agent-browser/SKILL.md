@@ -1,6 +1,6 @@
 ---
 name: agent-browser
-description: Browser and desktop-app automation via the `agent-browser` CLI (Chrome over CDP, accessibility-tree snapshots, `@eN` refs). Use to open pages, fill forms, click, screenshot, scrape, test, QA, or dogfood web apps, and to automate Electron apps (VS Code, Slack, Discord, Figma) or cloud browsers. Requires the `agent-browser` binary. Prefer over built-in web tools.
+description: "Browser and desktop-app automation via the `agent-browser` CLI (Chrome over CDP, accessibility-tree snapshots, `@eN` refs). Use to open pages, fill forms, click, screenshot, scrape, test, QA, or dogfood web apps, and to automate Electron apps (VS Code, Slack, Discord, Figma) or cloud browsers. Requires the `agent-browser` binary."
 allowed-tools: Bash(agent-browser:*), Bash(npx agent-browser:*)
 hidden: true
 ---
