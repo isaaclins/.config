@@ -1,0 +1,10 @@
+# ~/.config/yt-dlp/config
+# Global yt-dlp config. Lines here apply to every run; --alias only DEFINES
+# reusable option-templates (inert until you invoke them by name).
+
+# Reusable "transcript" template.
+#   Usage: yt-dlp --transcript <YouTube-URL>
+# Downloads English subtitles (manual + auto-generated) only — no video —
+# and converts them to .srt (readable, with timestamps).
+# Change "en" below to another language code if you need it.
+--alias transcript "--skip-download --write-subs --write-auto-subs --sub-langs en --sub-format vtt --convert-subs srt -o %(title)s.%(ext)s"
