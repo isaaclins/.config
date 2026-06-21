@@ -28,3 +28,17 @@ if test -d $__claude_skills_store
         ln -s $__claude_skills_store $__claude_skills_link
     end
 end
+
+# The `npx skills` CLI hard-codes its global store to ~/.agents/skills (constant
+# AGENTS_DIR, not overridable). Point that path at the canonical store so a raw
+# `npx skills add ...` lands where Claude reads. Only auto-fix the missing or
+# dangling-link case: never clobber a real, populated directory the CLI may have
+# just repopulated (that case is left for the human / bootstrap to migrate).
+set -l __agents_skills_link $HOME/.agents/skills
+if test -d $__claude_skills_store
+    if not test -e $__agents_skills_link
+        mkdir -p $HOME/.agents
+        rm -f $__agents_skills_link # clears a dangling symlink
+        ln -s $__claude_skills_store $__agents_skills_link
+    end
+end

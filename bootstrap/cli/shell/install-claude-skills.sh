@@ -12,6 +12,10 @@
 #     3. ~/.claude/skills                (fallback for bare `npx skills`, which
 #                                         hard-codes this path and bypasses the
 #                                         $CLAUDE_CONFIG_DIR override)
+#     4. ~/.agents/skills                (the `npx skills` CLI global store; it
+#                                         hard-codes AGENTS_DIR=.agents, not
+#                                         overridable, so a raw `npx skills add`
+#                                         would otherwise miss the canonical store)
 #
 #   Also ensured: the Codex rules symlink
 #     ~/.config/agents/codex/AGENTS.md -> ~/.config/agents/AGENTS.md
@@ -99,5 +103,10 @@ mkdir -p "$CANON"
 link_dir "$HOME/.config/agents/claude/skills" "$CANON"
 link_dir "$HOME/.config/agents/codex/skills" "$CANON"
 link_dir "$HOME/.claude/skills" "$CANON"
+# The `npx skills` CLI hard-codes its global store to ~/.agents/skills (constant
+# AGENTS_DIR, not overridable), so a raw `npx skills add ...` would bypass the
+# canonical store. Redirect it here too. link_dir backs up any pre-existing real
+# dir with a timestamped suffix before symlinking, so no data is lost.
+link_dir "$HOME/.agents/skills" "$CANON"
 
 link_file "$HOME/.config/agents/codex/AGENTS.md" "$HOME/.config/agents/AGENTS.md"
