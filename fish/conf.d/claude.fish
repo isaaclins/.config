@@ -15,3 +15,16 @@ set -gx CLAUDE_CONFIG_DIR $HOME/.config/agents/claude
 # defence: when a human types `skills add ...` in fish, it injects `-g` so the
 # package's CLAUDE_CONFIG_DIR-aware path picks the dotfile location directly
 # (which lands in `agents/claude/skills`, a symlink to the canonical store).
+
+# Ensure Claude's skills dir points at the canonical store. Claude loads skills
+# from $CLAUDE_CONFIG_DIR/skills; the canonical store is ~/.config/agents/skills.
+# Recreate the link on every shell start if it is missing or dangling, so a
+# fresh machine/account self-heals.
+set -l __claude_skills_link $CLAUDE_CONFIG_DIR/skills
+set -l __claude_skills_store $HOME/.config/agents/skills
+if test -d $__claude_skills_store
+    if not test -e $__claude_skills_link
+        rm -f $__claude_skills_link # clears a dangling symlink
+        ln -s $__claude_skills_store $__claude_skills_link
+    end
+end
