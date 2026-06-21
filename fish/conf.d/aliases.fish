@@ -25,6 +25,8 @@ if type -q bat
     alias cat 'bat --paging=never'
 end
 
+abbr -a sshhome 'ssh isaaclins@homeserver'
+
 abbr -a lg  'lazygit'
 abbr -a zj  'zellij'
 abbr -a zja 'zellij attach'

@@ -13,7 +13,7 @@ function fish_prompt
 
     set -l c_border 7aa2f7
     set -l c_user   e0af68
-    set -l c_host   7dcfff
+    set -l c_host   f7768e
     set -l c_pwd    bb9af7
     set -l c_branch 9ece6a
     set -l c_time   c0caf5
