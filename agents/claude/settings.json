@@ -1,19 +1,58 @@
 {
-  "permissions": {
-    "defaultMode": "auto"
+  "env": {
+    "CLAUDE_CODE_NO_FLICKER": "1"
   },
   "attribution": {
     "commit": "",
     "pr": "",
     "sessionUrl": false
   },
-  "env": {
-    "CLAUDE_CODE_NO_FLICKER": "1"
+  "permissions": {
+    "defaultMode": "auto"
+  },
+  "hooks": {
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "afplay /System/Library/Sounds/Glass.aiff"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/.config/agents/claude/hooks/cache-on-session-start.sh\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/.config/agents/claude/hooks/cache-on-stop.sh\"",
+            "async": true
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "/Users/taaliis4/.config/agents/claude/statusline.sh",
+    "padding": 0
   },
   "enabledPlugins": {
     "swift-lsp@claude-plugins-official": true,
     "clangd-lsp@claude-plugins-official": true
   },
+  "effortLevel": "xhigh",
   "companyAnnouncements": [
     "Welcome back, Isaac. Let's build something clean.",
     "Hola otra vez, Isaac. A darle.",
@@ -58,7 +97,6 @@
     "ยินดีต้อนรับกลับมา Isaac เริ่มกันเลย",
     "nuqneH, Isaac. maHvaD Qu' wIta'."
   ],
-  "effortLevel": "xhigh",
   "skipDangerousModePermissionPrompt": true,
   "theme": "dark",
   "editorMode": "normal",
@@ -66,33 +104,5 @@
   "remoteControlAtStartup": true,
   "inputNeededNotifEnabled": true,
   "agentPushNotifEnabled": true,
-  "skipAutoPermissionPrompt": true,
-  "statusLine": {
-    "type": "command",
-    "command": "/Users/taaliis4/.config/agents/claude/statusline.sh",
-    "padding": 0
-  },
-  "hooks": {
-    "Notification": [
-      {
-        "hooks": [
-          { "type": "command", "command": "afplay /System/Library/Sounds/Glass.aiff" }
-        ]
-      }
-    ],
-    "SessionStart": [
-      {
-        "hooks": [
-          { "type": "command", "command": "\"$HOME/.config/agents/claude/hooks/cache-on-session-start.sh\"" }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          { "type": "command", "command": "\"$HOME/.config/agents/claude/hooks/cache-on-stop.sh\"", "async": true }
-        ]
-      }
-    ]
-  }
+  "skipAutoPermissionPrompt": true
 }
