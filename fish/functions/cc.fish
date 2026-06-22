@@ -10,6 +10,27 @@
 # anyway, so the same function works on both Mac and Linux.
 function cc --description 'Run Claude with keep-awake when available (macOS pmset/caffeinate), auto-reverted on exit; runs claude anyway elsewhere'
     command bash -c '
+        # Consolidate freshly-installed skills into the canonical store, then make
+        # ~/.agents/skills a symlink so future installs land in ~/.config/agents/skills.
+        cc_src="$HOME/.agents/skills"
+        cc_dest="$HOME/.config/agents/skills"
+        mkdir -p "$cc_dest"
+        if [ -d "$cc_src" ] && [ ! -L "$cc_src" ]; then
+            shopt -s dotglob nullglob
+            for cc_entry in "$cc_src"/*; do
+                cc_name="$(basename "$cc_entry")"
+                rm -rf "$cc_dest/$cc_name" 2>/dev/null
+                mv "$cc_entry" "$cc_dest/$cc_name" 2>/dev/null
+            done
+            shopt -u dotglob nullglob
+            rmdir "$cc_src" 2>/dev/null
+        fi
+        if [ ! -e "$cc_src" ] || { [ -L "$cc_src" ] && [ "$(readlink "$cc_src")" != "$cc_dest" ]; }; then
+            rm -f "$cc_src"
+            mkdir -p "$(dirname "$cc_src")"
+            ln -s "$cc_dest" "$cc_src"
+        fi
+
         # macOS lid-closed keep-awake. Always restore on exit, even on Ctrl-C.
         if command -v pmset >/dev/null 2>&1; then
             if sudo pmset -a disablesleep 1; then
