@@ -45,7 +45,7 @@
   },
   "statusLine": {
     "type": "command",
-    "command": "/Users/taaliis4/.config/agents/claude/statusline.sh",
+    "command": "$HOME/.config/agents/claude/statusline.sh",
     "padding": 0
   },
   "enabledPlugins": {
@@ -98,11 +98,11 @@
     "nuqneH, Isaac. maHvaD Qu' wIta'."
   ],
   "skipDangerousModePermissionPrompt": true,
+  "skipAutoPermissionPrompt": true,
   "theme": "dark",
   "editorMode": "normal",
   "preferredNotifChannel": "ghostty",
   "remoteControlAtStartup": true,
   "inputNeededNotifEnabled": true,
-  "agentPushNotifEnabled": true,
-  "skipAutoPermissionPrompt": true
+  "agentPushNotifEnabled": true
 }
