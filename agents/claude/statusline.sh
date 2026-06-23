@@ -92,6 +92,7 @@ EMOJI_MODEL="🤖"
 EMOJI_USAGE="🔋"
 EMOJI_COST="💰"
 EMOJI_CONTEXT="🧠"
+EMOJI_EFFORT="⚡"
 
 # -----------------------------------------------------------------------------
 # ccusage resolver: print a command prefix that runs ccusage, or empty if none.
@@ -218,16 +219,21 @@ CUR_DIR=""
 CONTEXT_PCT=-1
 SESSION_USED_PCT=-1
 SESSION_RESET_EPOCH=0
+EFFORT_RAW=""
 if [ -n "$STDIN_JSON" ]; then
-  # Single jq call returns model, dir, context %, and the live 5-hour session
-  # rate-limit fields tab-separated; split with the read builtin. Context %
-  # falls back to tokens/size, then a -1 sentinel.
+  # Single jq call returns model, dir, context %, the live 5-hour session
+  # rate-limit fields, and the reasoning effort level tab-separated; split with
+  # the read builtin. Context % falls back to tokens/size, then a -1 sentinel.
   #
   # SESSION_USED_PCT  rate_limits.five_hour.used_percentage (-1 if absent)
   # SESSION_RESET_EPOCH  rate_limits.five_hour.resets_at as a UTC unix epoch.
   #   resets_at may be a number (use as-is) or an ISO 8601 string (strip any
   #   fractional seconds, then fromdateiso8601); the whole conversion is wrapped
   #   in try/catch so a bad or missing value yields 0.
+  # EFFORT_RAW  reasoning effort level (e.g. low, medium, high, xhigh, max).
+  #   The official field is .effort.level (an object), but we also tolerate a
+  #   plain string .effort. Empty string when the field is absent (the field is
+  #   only present when the current model supports the effort parameter).
   stdin_parsed="$(printf '%s' "$STDIN_JSON" | "$JQ" -r '
     [ (.model.display_name // ""),
       (.workspace.current_dir // .cwd // ""),
@@ -241,13 +247,20 @@ if [ -n "$STDIN_JSON" ]; then
         | if ($r | type) == "number" then $r
           elif ($r | type) == "string"
           then ($r | (sub("\\.[0-9]+";"") | sub("\\.[0-9]+Z$";"Z")) | try fromdateiso8601 catch 0)
-          else 0 end ) ] | @tsv
+          else 0 end ),
+      ( (.effort) as $e
+        | if ($e | type) == "object" then ($e.level // "")
+          elif ($e | type) == "string" then $e
+          else "" end ) ] | @tsv
   ' 2>/dev/null)"
   if [ -n "$stdin_parsed" ]; then
-    IFS=$'\t' read -r parsed_model CUR_DIR CONTEXT_PCT SESSION_USED_PCT SESSION_RESET_EPOCH <<< "$stdin_parsed"
+    IFS=$'\t' read -r parsed_model CUR_DIR CONTEXT_PCT SESSION_USED_PCT SESSION_RESET_EPOCH EFFORT_RAW <<< "$stdin_parsed"
     [ -n "$parsed_model" ] && MODEL="$parsed_model"
   fi
 fi
+
+# FALLBACK: when stdin carries no effort level, honor the CLAUDE_EFFORT env var.
+[ -n "$EFFORT_RAW" ] || EFFORT_RAW="$CLAUDE_EFFORT"
 
 # Defensive defaults: any empty primitive falls back to a safe sentinel.
 [ -n "$SESSION_USED_PCT" ]    || SESSION_USED_PCT=-1
@@ -275,7 +288,7 @@ SEP="${ESC}[2;38;2;90;90;90m │ ${RESET}"
 # If the locale is unavailable the count may overestimate slightly, which only
 # makes the ladder compact a touch early (safe: it never wraps).
 # -----------------------------------------------------------------------------
-WIDE_EMOJI=("$EMOJI_BRANCH" "$EMOJI_MODEL" "$EMOJI_USAGE" "$EMOJI_COST" "$EMOJI_CONTEXT")
+WIDE_EMOJI=("$EMOJI_BRANCH" "$EMOJI_MODEL" "$EMOJI_USAGE" "$EMOJI_COST" "$EMOJI_CONTEXT" "$EMOJI_EFFORT")
 
 visible_width() {
   local s="$1" clean tmp e occ width
@@ -334,6 +347,29 @@ model_seg() {
   local name="$MODEL"
   [ "$1" = "trim" ] && name="$MODEL_TRIMMED"
   printf '%s%s %s%s' "$(col 200 120 220)" "$EMOJI_MODEL" "$name" "$RESET"
+}
+
+# -----------------------------------------------------------------------------
+# Segment 2b: reasoning effort level (e.g. xhigh, high, medium, low). Has a
+# single form. Precomputes EFFORT_KNOWN (0/1) and EFFORT_VAL (the level string).
+# Unlike the usage hero, this segment is OMITTED entirely when unknown: effort
+# is not always meaningful and join_segments skips empty strings, so an unknown
+# effort simply disappears. The raw value is shown verbatim (no capitalization).
+# -----------------------------------------------------------------------------
+EFFORT_KNOWN=0
+EFFORT_VAL=""
+effort_segment() {
+  [ -n "$EFFORT_RAW" ] || return 0
+  EFFORT_KNOWN=1
+  EFFORT_VAL="$EFFORT_RAW"
+}
+
+# Effort segment string: "⚡ <level>" in orange (distinct from the model purple,
+# the cost gold, and the branch cyan). Empty when the level is unknown so the
+# ladder drops it cleanly via join_segments.
+effort_seg() {
+  [ "$EFFORT_KNOWN" = "1" ] || return 0
+  printf '%s%s %s%s' "$(col 230 140 40)" "$EMOJI_EFFORT" "$EFFORT_VAL" "$RESET"
 }
 
 # -----------------------------------------------------------------------------
@@ -792,13 +828,15 @@ join_segments() {
 # -----------------------------------------------------------------------------
 # LADDER: render the whole line at a compaction level (0 richest .. 7 most
 # compact). Forms come from the per-segment builders; all values are live, none
-# hardcoded. Drop priority (lowest value first): cost -> model -> context ->
-# git, with the usage hero always kept.
-#   L0 Full: git | model(full) | hero(full,14bar) | cost(today) | ctx(10bar)
-#   L1 Trim: git | model(trim) | hero(paren,14bar) | cost(plain) | ctx(10bar)
-#   L2 Bars: git | model(trim) | hero(paren,8bar) | cost(plain) | ctx(5bar)
-#   L3 NoBar: git | model(trim) | hero(paren_nobar) | cost(plain) | ctx(num)
-#   L4 Mins: git | model(trim) | hero(min_paren) | ctx(num)        (cost dropped)
+# hardcoded. The effort segment sits immediately after the model segment and
+# only appears when the effort level is known (it is omitted, never blanked,
+# when unknown). Drop priority (lowest value first): cost -> effort -> model ->
+# context -> git, with the usage hero always kept.
+#   L0 Full: git | model(full) | effort | hero(full,14bar) | cost(today) | ctx(10bar)
+#   L1 Trim: git | model(trim) | effort | hero(paren,14bar) | cost(plain) | ctx(10bar)
+#   L2 Bars: git | model(trim) | effort | hero(paren,8bar) | cost(plain) | ctx(5bar)
+#   L3 NoBar: git | model(trim) | effort | hero(paren_nobar) | cost(plain) | ctx(num)
+#   L4 Mins: git | model(trim) | hero(min_paren) | ctx(num)  (cost + effort dropped)
 #   L5 NoModel: git | hero(min_paren) | ctx(num)                   (model dropped)
 #   L6 MinHero: git | hero(minimal)                                (ctx dropped)
 #   L7 HeroOnly: hero(minimal)                                     (git dropped)
@@ -806,10 +844,10 @@ join_segments() {
 # -----------------------------------------------------------------------------
 render_level() {
   case "$1" in
-    0) join_segments "$GIT_SEG" "$(model_seg full)" "$(hero_seg full)" "$(cost_seg today)" "$(context_seg bar)" ;;
-    1) join_segments "$GIT_SEG" "$(model_seg trim)" "$(hero_seg paren 14)" "$(cost_seg plain)" "$(context_seg bar)" ;;
-    2) join_segments "$GIT_SEG" "$(model_seg trim)" "$(hero_seg paren 8)" "$(cost_seg plain)" "$(context_seg bar5)" ;;
-    3) join_segments "$GIT_SEG" "$(model_seg trim)" "$(hero_seg paren_nobar)" "$(cost_seg plain)" "$(context_seg num)" ;;
+    0) join_segments "$GIT_SEG" "$(model_seg full)" "$(effort_seg)" "$(hero_seg full)" "$(cost_seg today)" "$(context_seg bar)" ;;
+    1) join_segments "$GIT_SEG" "$(model_seg trim)" "$(effort_seg)" "$(hero_seg paren 14)" "$(cost_seg plain)" "$(context_seg bar)" ;;
+    2) join_segments "$GIT_SEG" "$(model_seg trim)" "$(effort_seg)" "$(hero_seg paren 8)" "$(cost_seg plain)" "$(context_seg bar5)" ;;
+    3) join_segments "$GIT_SEG" "$(model_seg trim)" "$(effort_seg)" "$(hero_seg paren_nobar)" "$(cost_seg plain)" "$(context_seg num)" ;;
     4) join_segments "$GIT_SEG" "$(model_seg trim)" "$(hero_seg min_paren)" "$(context_seg num)" ;;
     5) join_segments "$GIT_SEG" "$(hero_seg min_paren)" "$(context_seg num)" ;;
     6) join_segments "$GIT_SEG" "$(hero_seg minimal)" ;;
@@ -827,6 +865,7 @@ render_level() {
 # -----------------------------------------------------------------------------
 git_segment
 model_segment
+effort_segment
 usage_segment
 today_segment
 context_segment
