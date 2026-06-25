@@ -92,3 +92,6 @@ agents.botched.bak-*/
 
 # Out of scope, never tracked.
 code-server/
+
+# Stray JGit cache dir (filesystem-timer config), not project content.
+jgit/
