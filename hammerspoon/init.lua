@@ -1,14 +1,15 @@
 -- init.lua
 -- Entry point. Loads the three always-loaded modules:
---   lib/clamshell-sleep.lua       (keep lid-closed MacBook asleep on battery)
+--   lib/clamshell-sleep.lua       (lid closed: stay awake with an external display even on battery, sleep when unplugged)
 --   lib/window-manager.lua        (Cmd+arrow tiling)
 --   lib/scroll-direction.lua      (trackpad natural, mouse wheel conventional)
 
 -- Enable the `hs` shell IPC so external tools can introspect / reload.
 pcall(require, "hs.ipc")
 
+local clamshell
 local clamshellOk, clamshellErr = pcall(function()
-    dofile(hs.configdir .. "/lib/clamshell-sleep.lua"):start()
+    clamshell = dofile(hs.configdir .. "/lib/clamshell-sleep.lua"):start()
 end)
 if not clamshellOk then
     hs.alert.show("Clamshell sleep failed: " .. tostring(clamshellErr), 5)
@@ -30,6 +31,7 @@ end
 _G.HS = {
     wm = wm,
     scrollDirection = scrollDirection,
+    clamshell = clamshell,
 }
 
 hs.alert.show("Hammerspoon config loaded", 1.5)
