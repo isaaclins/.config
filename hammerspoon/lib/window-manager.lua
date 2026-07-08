@@ -1,11 +1,11 @@
 -- lib/window-manager.lua
--- Cmd+arrow tiling window manager. Always loaded from init.lua, never a profile.
+-- Cmd+arrow tiling window manager. Always loaded from init.lua.
 --
 -- Public API:
 --   start()        -- bind hotkeys (Cmd+arrows, Cmd+Shift+Down)
---   stop()         -- unbind hotkeys
+--   stop()         -- unbind hotkeys and cancel in-flight animations
 --   resetCycle()   -- reset Cmd+Down preset cycle to first slot
---   left(win)      -- move win to left half  (helpful for profile on_launch hooks)
+--   left(win)      -- move win to left half
 --   right(win)
 --   maximize(win)
 --   center90(win)
@@ -28,9 +28,13 @@ M.debug = false
 -- On a single screen this just toggles between left and right halves forever.
 M.wrapHorizontal = true
 
+-- Cmd+Down cycle state, scoped to one window at a time.
 local cycleIndex = 1
 local hasCycled = false
-local tweenTimer = nil
+local cycleWindowId = nil
+
+-- In-flight animations, keyed by window id so windows tween independently.
+local activeTweens = {}
 local hotkeys = {}
 
 local function roundRect(r)
@@ -49,13 +53,6 @@ local function easeInOutCubic(t)
     return 1 - ((-2 * t + 2) ^ 3) / 2
 end
 
-local function stopActiveTween()
-    if tweenTimer then
-        tweenTimer:stop()
-        tweenTimer = nil
-    end
-end
-
 local function windowAlive(w)
     if not w then
         return false
@@ -64,26 +61,56 @@ local function windowAlive(w)
     return ok
 end
 
+local function windowId(win)
+    local ok, id = pcall(function() return win:id() end)
+    if ok then return id end
+    return nil
+end
+
+local function stopTween(winId)
+    if winId == nil then return end
+    local timer = activeTweens[winId]
+    if timer then
+        timer:stop()
+        activeTweens[winId] = nil
+    end
+end
+
+local function stopAllTweens()
+    for winId, timer in pairs(activeTweens) do
+        timer:stop()
+        activeTweens[winId] = nil
+    end
+end
+
+local function setFrameSafely(win, frame)
+    return pcall(function() win:setFrame(frame, 0) end)
+end
+
 local function animateWindowTo(win, targetFrame, duration)
-    if not win then return end
+    if not windowAlive(win) then return end
     if duration == nil then duration = M.animationDuration end
-    if duration <= 0 then
-        stopActiveTween()
-        win:setFrame(roundRect(targetFrame), 0)
+    targetFrame = roundRect(targetFrame)
+
+    local winId = windowId(win)
+    stopTween(winId)
+
+    -- Without an id there is no way to track the tween; snap immediately.
+    if duration <= 0 or winId == nil then
+        setFrameSafely(win, targetFrame)
         return
     end
 
-    targetFrame = roundRect(targetFrame)
-    stopActiveTween()
+    local okFrame, startFrame = pcall(function() return roundRect(win:frame()) end)
+    if not okFrame or not startFrame then return end
 
-    local startFrame = roundRect(win:frame())
     local dx = targetFrame.x - startFrame.x
     local dy = targetFrame.y - startFrame.y
     local dw = targetFrame.w - startFrame.w
     local dh = targetFrame.h - startFrame.h
 
     if math.abs(dx) < 0.5 and math.abs(dy) < 0.5 and math.abs(dw) < 0.5 and math.abs(dh) < 0.5 then
-        win:setFrame(targetFrame, 0)
+        setFrameSafely(win, targetFrame)
         return
     end
 
@@ -92,11 +119,16 @@ local function animateWindowTo(win, targetFrame, duration)
 
     local function tick()
         if not windowAlive(win) then
-            stopActiveTween()
+            stopTween(winId)
             return
         end
         local elapsed = hs.timer.secondsSinceEpoch() - startTime
         local t = math.min(1, elapsed / duration)
+        if t >= 1 then
+            stopTween(winId)
+            setFrameSafely(win, targetFrame)
+            return
+        end
         local e = easeInOutCubic(t)
         local nf = roundRect({
             x = startFrame.x + dx * e,
@@ -104,15 +136,13 @@ local function animateWindowTo(win, targetFrame, duration)
             w = startFrame.w + dw * e,
             h = startFrame.h + dh * e,
         })
-        win:setFrame(nf, 0)
-        if t >= 1 then
-            stopActiveTween()
-            win:setFrame(targetFrame, 0)
+        if not setFrameSafely(win, nf) then
+            stopTween(winId)
         end
     end
 
+    activeTweens[winId] = hs.timer.doEvery(interval, tick)
     tick()
-    tweenTimer = hs.timer.doEvery(interval, tick)
 end
 
 local function isAtFrame(winFrame, targetFrame)
@@ -124,6 +154,21 @@ end
 
 local function getUsableFrame(screen)
     return screen:frame()
+end
+
+-- Screen can be nil mid display-reconfiguration; returns nil then.
+local function usableFrameFor(win)
+    local ok, screen = pcall(function() return win:screen() end)
+    if not ok or not screen then return nil end
+    return getUsableFrame(screen)
+end
+
+local function leftHalfFrame(f)
+    return { x = f.x, y = f.y, w = f.w / 2, h = f.h }
+end
+
+local function rightHalfFrame(f)
+    return { x = f.x + f.w / 2, y = f.y, w = f.w / 2, h = f.h }
 end
 
 -- Return the leftmost ("west") or rightmost ("east") screen in the current
@@ -153,67 +198,89 @@ local cornerPositions = {
     function(screen) local f = getUsableFrame(screen); return { x = f.x,             y = f.y,             w = f.w / 2, h = f.h     } end, -- left
 }
 
+function M.resetCycle()
+    cycleIndex = 1
+    hasCycled = false
+    cycleWindowId = nil
+end
+
+-- The Cmd+Down cycle belongs to one window; targeting another window restarts it.
+local function syncCycleToWindow(winId)
+    if winId == cycleWindowId then return end
+    M.resetCycle()
+    cycleWindowId = winId
+end
+
 local function moveWindow(direction, duration)
     if duration == nil then duration = M.animationDuration end
     local win = hs.window.focusedWindow()
-    if not win then return end
+    if not windowAlive(win) then return end
 
-    local screen = win:screen()
+    -- setFrame misbehaves on native-fullscreen windows; leave them alone.
+    local fsOk, isFullScreen = pcall(function() return win:isFullScreen() end)
+    if not fsOk or isFullScreen then return end
+
+    local screenOk, screen = pcall(function() return win:screen() end)
+    if not screenOk or not screen then return end
     local f = getUsableFrame(screen)
 
+    local frameOk, currentFrame = pcall(function() return win:frame() end)
+    if not frameOk or not currentFrame then return end
+
     if direction == "left" then
-        local newFrame = { x = f.x, y = f.y, w = f.w / 2, h = f.h }
-        if isAtFrame(win:frame(), newFrame) then
+        M.resetCycle()
+        local newFrame = leftHalfFrame(f)
+        if isAtFrame(currentFrame, newFrame) then
             local nextScreen = screen:toWest()
             if not nextScreen and M.wrapHorizontal then
                 nextScreen = horizontalEdgeScreen("east")
             end
             if nextScreen then
-                screen = nextScreen
-                f = getUsableFrame(screen)
-                newFrame = { x = f.x + f.w / 2, y = f.y, w = f.w / 2, h = f.h }
+                newFrame = rightHalfFrame(getUsableFrame(nextScreen))
             end
         end
         animateWindowTo(win, newFrame, duration)
 
     elseif direction == "right" then
-        local newFrame = { x = f.x + f.w / 2, y = f.y, w = f.w / 2, h = f.h }
-        if isAtFrame(win:frame(), newFrame) then
+        M.resetCycle()
+        local newFrame = rightHalfFrame(f)
+        if isAtFrame(currentFrame, newFrame) then
             local nextScreen = screen:toEast()
             if not nextScreen and M.wrapHorizontal then
                 nextScreen = horizontalEdgeScreen("west")
             end
             if nextScreen then
-                screen = nextScreen
-                f = getUsableFrame(screen)
-                newFrame = { x = f.x, y = f.y, w = f.w / 2, h = f.h }
+                newFrame = leftHalfFrame(getUsableFrame(nextScreen))
             end
         end
         animateWindowTo(win, newFrame, duration)
 
     elseif direction == "up" then
+        M.resetCycle()
         if win:isMinimized() then
             win:unminimize()
-            hs.timer.doAfter(0.1, function() win:focus() end)
+            hs.timer.doAfter(0.1, function()
+                pcall(function() win:focus() end)
+            end)
+            return
+        end
+        local isMaximized = math.abs(currentFrame.x - f.x) < 10 and
+            math.abs(currentFrame.y - f.y) < 10 and
+            math.abs(currentFrame.w - f.w) < 10 and
+            math.abs(currentFrame.h - f.h) < 10
+        if isMaximized then
+            local scale = 0.90
+            local w = f.w * scale
+            local h = f.h * scale
+            local x = f.x + (f.w - w) / 2
+            local y = f.y + (f.h - h) / 2
+            animateWindowTo(win, { x = x, y = y, w = w, h = h }, duration)
         else
-            local currentFrame = win:frame()
-            local isMaximized = math.abs(currentFrame.x - f.x) < 10 and
-                math.abs(currentFrame.y - f.y) < 10 and
-                math.abs(currentFrame.w - f.w) < 10 and
-                math.abs(currentFrame.h - f.h) < 10
-            if isMaximized then
-                local scale = 0.90
-                local w = f.w * scale
-                local h = f.h * scale
-                local x = f.x + (f.w - w) / 2
-                local y = f.y + (f.h - h) / 2
-                animateWindowTo(win, { x = x, y = y, w = w, h = h }, duration)
-            else
-                animateWindowTo(win, { x = f.x, y = f.y, w = f.w, h = f.h }, duration)
-            end
+            animateWindowTo(win, { x = f.x, y = f.y, w = f.w, h = f.h }, duration)
         end
 
     elseif direction == "down" then
+        syncCycleToWindow(windowId(win))
         if cycleIndex == 1 and hasCycled then
             local nextScreen = screen:next()
             if nextScreen then screen = nextScreen end
@@ -224,6 +291,7 @@ local function moveWindow(direction, duration)
         cycleIndex = (cycleIndex % #cornerPositions) + 1
 
     elseif direction == "down_reverse" then
+        syncCycleToWindow(windowId(win))
         local n = #cornerPositions
         local idx = cycleIndex - 2
         if idx < 1 then idx = idx + n end
@@ -234,49 +302,62 @@ local function moveWindow(direction, duration)
     end
 end
 
-local function moveWindowRepeat(direction)
-    return function() moveWindow(direction, 0) end
+-- A dying window mid-hotkey must never surface a Lua error alert.
+local function moveWindowSafely(direction, duration)
+    local ok, err = pcall(moveWindow, direction, duration)
+    if not ok and M.debug then
+        print("window-manager: moveWindow failed: " .. tostring(err))
+    end
 end
 
--- Public API for hooks
+local function moveWindowHandler(direction)
+    return function() moveWindowSafely(direction) end
+end
+
+local function moveWindowRepeatHandler(direction)
+    return function() moveWindowSafely(direction, 0) end
+end
+
+-- Public API
 function M.left(win)
     win = win or hs.window.focusedWindow()
-    if not win then return end
-    local f = getUsableFrame(win:screen())
-    animateWindowTo(win, { x = f.x, y = f.y, w = f.w / 2, h = f.h })
+    if not windowAlive(win) then return end
+    local f = usableFrameFor(win)
+    if not f then return end
+    animateWindowTo(win, leftHalfFrame(f))
 end
 
 function M.right(win)
     win = win or hs.window.focusedWindow()
-    if not win then return end
-    local f = getUsableFrame(win:screen())
-    animateWindowTo(win, { x = f.x + f.w / 2, y = f.y, w = f.w / 2, h = f.h })
+    if not windowAlive(win) then return end
+    local f = usableFrameFor(win)
+    if not f then return end
+    animateWindowTo(win, rightHalfFrame(f))
 end
 
 function M.maximize(win)
     win = win or hs.window.focusedWindow()
-    if not win then return end
-    local f = getUsableFrame(win:screen())
+    if not windowAlive(win) then return end
+    local f = usableFrameFor(win)
+    if not f then return end
     animateWindowTo(win, f)
 end
 
 function M.center90(win)
     win = win or hs.window.focusedWindow()
-    if not win then return end
-    local f = getUsableFrame(win:screen())
+    if not windowAlive(win) then return end
+    local f = usableFrameFor(win)
+    if not f then return end
     local w, h = f.w * 0.9, f.h * 0.9
     animateWindowTo(win, { x = f.x + (f.w - w) / 2, y = f.y + (f.h - h) / 2, w = w, h = h })
 end
 
 function M.corner(win, n)
     win = win or hs.window.focusedWindow()
-    if not win or not cornerPositions[n] then return end
-    animateWindowTo(win, cornerPositions[n](win:screen()))
-end
-
-function M.resetCycle()
-    cycleIndex = 1
-    hasCycled = false
+    if not windowAlive(win) or not cornerPositions[n] then return end
+    local ok, screen = pcall(function() return win:screen() end)
+    if not ok or not screen then return end
+    animateWindowTo(win, cornerPositions[n](screen))
 end
 
 function M.stop()
@@ -284,21 +365,21 @@ function M.stop()
         hk:delete()
     end
     hotkeys = {}
-    stopActiveTween()
+    stopAllTweens()
 end
 
 function M.start()
     M.stop()
     table.insert(hotkeys, hs.hotkey.bind({ "cmd" }, "left",
-        function() moveWindow("left") end, nil, moveWindowRepeat("left")))
+        moveWindowHandler("left"), nil, moveWindowRepeatHandler("left")))
     table.insert(hotkeys, hs.hotkey.bind({ "cmd" }, "right",
-        function() moveWindow("right") end, nil, moveWindowRepeat("right")))
+        moveWindowHandler("right"), nil, moveWindowRepeatHandler("right")))
     table.insert(hotkeys, hs.hotkey.bind({ "cmd" }, "up",
-        function() moveWindow("up") end, nil, moveWindowRepeat("up")))
+        moveWindowHandler("up"), nil, moveWindowRepeatHandler("up")))
     table.insert(hotkeys, hs.hotkey.bind({ "cmd" }, "down",
-        function() moveWindow("down") end, nil, moveWindowRepeat("down")))
+        moveWindowHandler("down"), nil, moveWindowRepeatHandler("down")))
     table.insert(hotkeys, hs.hotkey.bind({ "cmd", "shift" }, "down",
-        function() moveWindow("down_reverse") end, nil, moveWindowRepeat("down_reverse")))
+        moveWindowHandler("down_reverse"), nil, moveWindowRepeatHandler("down_reverse")))
 end
 
 return M
