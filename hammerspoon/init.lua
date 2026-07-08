@@ -7,6 +7,7 @@ pcall(require, "hs.ipc")
 -- Always loaded:
 --   lib/clamshell-sleep.lua       (untouched)
 --   lib/window-manager.lua        (Cmd+arrow tiling)
+--   lib/scroll-direction.lua      (trackpad natural, mouse wheel conventional)
 --
 -- App-profile manager:
 --   lib/profile-manager.lua       (load + activate)
@@ -29,6 +30,15 @@ end
 
 local wm = dofile(hs.configdir .. "/lib/window-manager.lua")
 wm.start()
+
+-- Trackpad scrolls natural, mouse wheel conventional (per-event inversion).
+local scrollDirection
+local scrollOk, scrollErr = pcall(function()
+    scrollDirection = dofile(hs.configdir .. "/lib/scroll-direction.lua"):start()
+end)
+if not scrollOk then
+    hs.alert.show("Scroll direction fix failed: " .. tostring(scrollErr), 5)
+end
 
 -- ----------------------------------------------------------------------
 -- App-profile manager
@@ -254,6 +264,7 @@ _G.AppProfileManager = {
     openChooser = openChooser,
     chooser = profileChooser,
     wm = wm,
+    scrollDirection = scrollDirection,
 }
 
 -- ----------------------------------------------------------------------
