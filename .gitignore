@@ -97,3 +97,6 @@ code-server/
 jgit/
 # cmux terminal manager: track the config, not editor backups.
 cmux/*.bak
+
+# Pi fish shims are generated output (generate-fish-shims.sh); never track them.
+pi/fish-shims/

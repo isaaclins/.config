@@ -1,5 +1,6 @@
 {
   "lastChangelogVersion": "0.80.3",
+  "shellCommandPrefix": "export PATH=\"$HOME/.config/pi/fish-shims:$PATH\"",
   "theme": "dark",
   "defaultProvider": "anthropic",
   "defaultModel": "claude-fable-5",
