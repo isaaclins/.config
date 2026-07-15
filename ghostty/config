@@ -20,6 +20,10 @@ font-thicken = true
 
 # Appearance
 theme = Arcoiris
+# Override the theme's dark red cursor; dark text so glyphs stay readable
+# under the white block cursor (theme would use near-white on white).
+cursor-color = #ffffff
+cursor-text = #201f1e
 window-padding-x = 4
 window-padding-y = 4
 window-padding-balance = true
