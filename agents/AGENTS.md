@@ -64,6 +64,16 @@ How:
 - Use the memory tools (remember, repo/user memory) to spot recurrence across sessions. Catching yourself re-deriving something you have derived before is the signal to write it down as a skill.
 - Memory hygiene works both ways: you can and should prune memory. When a remembered fact proves deprecated, wrong, or superseded, delete or rewrite it instead of stacking corrections on top.
 
+# Scripts: no one-time scripts in the repo
+
+Every executable has exactly one legitimate home. Before saving any script, pick its bucket:
+- Machine setup, even if needed only once per machine: an idempotent `install-*.sh` under `~/.config/bootstrap/` (auto-discovered by bootstrap.sh). Model it on the existing installers.
+- Recurring personal command: a fish function in `~/.config/fish/functions/` (autoloaded in fish, and available in pi shell commands via the fish-shims extension).
+- Agent knowledge or procedure: a skill in the canonical store.
+- True one-off (migration, one-time fix, exploration): run it inline and do NOT commit it. The commit message or episodic memory documents what was done. Delete any scratch file before finishing.
+
+If a one-off later recurs, promote it to the right bucket then. Never leave loose scripts in `scripts/` or scattered around the repo.
+
 # Global agent conventions (Isaac)
 
 ## Prose

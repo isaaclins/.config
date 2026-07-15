@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# ~/.config/bootstrap/cli/shell/install-claude-computer-use-mcp.sh
 # Enable the built-in `computer-use` MCP server for every project in .claude.json.
 #
 # Claude Code stores built-in MCP server enablement per-project under
@@ -12,8 +13,10 @@ set -euo pipefail
 config="${CLAUDE_CONFIG_DIR:-$HOME/.config/agents/claude}/.claude.json"
 
 if [ ! -f "$config" ]; then
-  echo "error: $config not found" >&2
-  exit 1
+  # Fresh machine: Claude Code has not run yet, so there is nothing to patch.
+  # Re-run bootstrap (or this script) after the first Claude session.
+  echo "skip: $config not found (run again after Claude Code's first start)"
+  exit 0
 fi
 
 if pgrep -x claude >/dev/null 2>&1; then
