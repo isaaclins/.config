@@ -11,11 +11,8 @@ fish_add_path $HOME/.local/bin
 
 # bun
 set --export BUN_INSTALL "$HOME/.bun"
-set --export PATH $BUN_INSTALL/bin $PATH
+fish_add_path $BUN_INSTALL/bin
 
 # pnpm
 set -gx PNPM_HOME "$HOME/.config/pnpm"
-if not string match -q -- "$PNPM_HOME/bin" $PATH
-  set -gx PATH "$PNPM_HOME/bin" $PATH
-end
-# pnpm end
+fish_add_path $PNPM_HOME/bin
