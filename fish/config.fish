@@ -11,6 +11,10 @@ if status is-interactive
 end
 fish_add_path $HOME/.local/bin
 
+# External editor (e.g. ctrl+g in pi/claude): Zed Preview, blocking until the file is closed.
+set -gx EDITOR "zed-preview --wait"
+set -gx VISUAL "zed-preview --wait"
+
 # bun
 set --export BUN_INSTALL "$HOME/.bun"
 fish_add_path $BUN_INSTALL/bin
