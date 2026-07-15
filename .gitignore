@@ -95,3 +95,5 @@ code-server/
 
 # Stray JGit cache dir (filesystem-timer config), not project content.
 jgit/
+# cmux terminal manager: track the config, not editor backups.
+cmux/*.bak
