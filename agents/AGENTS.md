@@ -39,6 +39,28 @@ Rule of thumb: if writing the delegation prompt would take as long as doing the 
 ## Override
 If the user explicitly tells you to do a task yourself, do it inline. This default yields to a direct instruction.
 
+# Skills: proactive use and self-authorship
+
+## Use skills proactively
+- On every task, scan the skill registry before starting. If a skill plausibly applies, read its SKILL.md and follow it. Do not wait to be told and do not ask; just use it. Mention it only in passing.
+- If mid-task you hit territory a skill covers (a file format, a tool, a platform), stop and read that skill before improvising.
+
+## Create skills on your own initiative
+You are expected to grow the skill library without being asked. Create a new skill when either trigger fires:
+- Recurrence: you notice you are doing the same kind of task again (about the third time is the threshold, do not wait for the twelfth).
+- Reusable discovery: you work out a non-obvious workaround, recipe, or gotcha that would clearly help in future sessions (fiddly tool invocations, API quirks, environment constraints, multi-step procedures that took effort to get right).
+
+How:
+- Write it to `~/.config/agents/skills/<kebab-case-name>/SKILL.md`. That is the canonical store; every agent (Claude, Codex, Pi) sees it via symlinks.
+- Frontmatter: `name` must be lowercase a-z, 0-9, hyphens only and match the directory. `description` must say what it does AND when to trigger it, with the concrete words a future session would think of.
+- Body: short and operational. Exact commands, exact paths, the gotchas, the failure modes. No filler.
+- Commit it to the dotfiles repo like any other change.
+- Do not create skills for one-off trivia or things any model already knows. The bar is: would a future session without this conversation redo real work?
+
+## Maintain skills
+- When a skill turns out wrong, outdated, or incomplete while you use it, fix it in the same session and commit the fix.
+- Use the memory tools (remember, repo/user memory) to spot recurrence across sessions. Catching yourself re-deriving something you have derived before is the signal to write it down as a skill.
+
 # Global agent conventions (Isaac)
 
 ## Prose
