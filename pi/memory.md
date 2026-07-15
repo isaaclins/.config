@@ -1,2 +1,3 @@
 - [2026-07-15] Isaac's delegation policy: when delegating to subagents, always track/report usage cost, write tightly scoped self-contained prompts, and prefer cheaper models (e.g. haiku/sonnet-class) unless the task truly needs a top model.
 - [2026-07-15] Before reverse-engineering any tool's behavior (grepping dist bundles, reading minified source), FETCH its online docs first (web_search/fetch_content). Isaac explicitly prefers docs over source archaeology.
+- [2026-07-15] Memory has two scopes: `remember` tool with scope="global" (or /remember -g) writes user-wide notes to ~/.config/pi/memory.md; default scope="project" writes repo notes to .pi/memory.local.md. File user preferences/habits globally, repo facts locally.
