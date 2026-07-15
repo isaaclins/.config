@@ -20,6 +20,15 @@ fail() {
     exit 1
 }
 
+# 0. gitleaks, when installed, brings a maintained ruleset (high-entropy and
+# hundreds of token shapes) that the hand-rolled regex below cannot match.
+# The regex scan still runs afterwards as an offline fallback.
+if command -v gitleaks >/dev/null 2>&1; then
+    if ! gitleaks protect --staged --no-banner --redact >/dev/null 2>&1; then
+        fail "gitleaks found a secret in staged changes (details: gitleaks protect --staged --verbose)"
+    fi
+fi
+
 # 1. Filename blocklist. Reject by path regardless of content.
 blocked_paths='(^|/)(\.claude\.json|credentials([._-].*)?\.json|\.env(\..+)?|.*\.(pem|key|p12|pfx|asc|log))$'
 
@@ -35,7 +44,7 @@ while IFS= read -r path; do
 done < <(git diff --cached --name-only --diff-filter=ACM)
 
 # 2. Content blocklist. Scan staged blob contents for token shapes.
-secret_patterns='sk-ant-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9]{30,}|gho_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|AKIA[0-9A-Z]{16}|xox[abprs]-[A-Za-z0-9-]{10,}|-----BEGIN (RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----'
+secret_patterns='sk-ant-[A-Za-z0-9_-]{20,}|sk-proj-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9]{30,}|gho_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|glpat-[A-Za-z0-9_-]{20,}|npm_[A-Za-z0-9]{36}|AIza[0-9A-Za-z_-]{35}|AKIA[0-9A-Z]{16}|xox[abprs]-[A-Za-z0-9-]{10,}|eyJ[A-Za-z0-9_-]{17,}\.eyJ[A-Za-z0-9_-]{17,}\.[A-Za-z0-9_-]{10,}|-----BEGIN (RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----'
 
 while IFS= read -r path; do
     [ -z "$path" ] && continue

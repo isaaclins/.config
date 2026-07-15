@@ -6,7 +6,13 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BOOTSTRAP_DIR="$ROOT_DIR/bootstrap"
-VERSIONS_FILE="$ROOT_DIR/.versions"
+FINAL_VERSIONS_FILE="$ROOT_DIR/.versions"
+
+# Build the versions record in a temp file and only replace .versions on full
+# success, so a bootstrap that fails partway keeps the previous record intact.
+# Exported so the install-*.sh children (via common.sh) write to the same file.
+VERSIONS_FILE="$(mktemp)"
+export VERSIONS_FILE
 
 source "$ROOT_DIR/bootstrap/common.sh"
 
@@ -44,4 +50,5 @@ for script in "${scripts[@]}"; do
   bash "$script"
 done
 
-echo "Done. Versions written to $VERSIONS_FILE"
+mv "$VERSIONS_FILE" "$FINAL_VERSIONS_FILE"
+echo "Done. Versions written to $FINAL_VERSIONS_FILE"

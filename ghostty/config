@@ -29,31 +29,16 @@ macos-titlebar-style = transparent
 mouse-hide-while-typing = true
 clipboard-read = allow
 
-# Keybinds
-keybind = super+comma=open_config
-keybind = super+shift+comma=reload_config
+# Keybinds (only remaps; macOS defaults like super+c/v/a/t/w, shift+arrows and
+# ctrl+tab are built in and not restated here)
 
-keybind = super+c=copy_to_clipboard
-keybind = super+v=paste_from_clipboard
-keybind = super+a=select_all
-
+# super+q closes the window instead of quitting; quit moves to super+shift+q.
 keybind = super+q=close_window
-keybind = super+shift+t=new_window
 keybind = super+shift+q=quit
-
-keybind = super+t=new_tab
-keybind = super+w=close_surface
+keybind = super+shift+t=new_window
 
 keybind = super+shift+plus=increase_font_size:1
 keybind = super+shift+minus=decrease_font_size:1
-
-keybind = shift+left=adjust_selection:left
-keybind = shift+right=adjust_selection:right
-keybind = shift+up=adjust_selection:up
-keybind = shift+down=adjust_selection:down
-
-keybind = ctrl+tab=next_tab
-keybind = ctrl+shift+tab=previous_tab
 
 keybind = ctrl+shift+i=inspector:toggle
 
