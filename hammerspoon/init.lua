@@ -3,6 +3,7 @@
 --   lib/clamshell-sleep.lua       (lid closed: stay awake with an external display even on battery, sleep when unplugged)
 --   lib/window-manager.lua        (Cmd+arrow tiling)
 --   lib/scroll-direction.lua      (trackpad natural, mouse wheel conventional)
+--   lib/fn-wasd.lua               (fn+WASD -> arrow keys)
 
 -- Enable the `hs` shell IPC so external tools can introspect / reload.
 pcall(require, "hs.ipc")
@@ -27,11 +28,21 @@ if not scrollOk then
     hs.alert.show("Scroll direction fix failed: " .. tostring(scrollErr), 5)
 end
 
+-- fn+W/A/S/D act as arrow keys everywhere.
+local fnWasd
+local fnWasdOk, fnWasdErr = pcall(function()
+    fnWasd = dofile(hs.configdir .. "/lib/fn-wasd.lua"):start()
+end)
+if not fnWasdOk then
+    hs.alert.show("fn+WASD remap failed: " .. tostring(fnWasdErr), 5)
+end
+
 -- Debug handle (for `hs -c` introspection)
 _G.HS = {
     wm = wm,
     scrollDirection = scrollDirection,
     clamshell = clamshell,
+    fnWasd = fnWasd,
 }
 
 hs.alert.show("Hammerspoon config loaded", 1.5)
