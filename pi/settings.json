@@ -46,7 +46,7 @@
     "preset": "default"
   },
   "quietStartup": false,
-  "shellCommandPrefix": "export PATH=\"$HOME/.config/pi/fish-shims:$PATH\"",
+  "shellCommandPrefix": "export PATH=\"$HOME/.config/pi/fish-shims:$PATH\"; __pcwd=\"${TMPDIR:-/tmp}/pi-cwd-$PPID\"; [ -f \"$__pcwd\" ] && { __d=$(cat \"$__pcwd\" 2>/dev/null); [ -d \"$__d\" ] && cd \"$__d\"; }; trap 'pwd > \"$__pcwd\" 2>/dev/null' EXIT",
   "showHardwareCursor": false,
   "subagents": {
     "agentOverrides": {
