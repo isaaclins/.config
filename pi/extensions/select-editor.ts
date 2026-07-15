@@ -117,18 +117,97 @@ export function deleteRange(
  * Delegates the actual ANSI-safe slicing to pi-tui's own `sliceWithWidth`,
  * which already skips escape codes and handles wide characters correctly.
  */
+/**
+ * Escape-sequence token at the start of the given string, or undefined.
+ * Recognizes CSI (\x1b[...X), OSC (\x1b]...BEL or ST) and APC (\x1b_...BEL
+ * or ST) sequences. pi renders its cursor as an APC marker (\x1b_pi:c\x07)
+ * embedded in the row, so decoration must pass these through untouched or
+ * the TUI loses the cursor entirely.
+ */
+function leadingEscapeSequence(text: string): string | undefined {
+  if (!text.startsWith("\x1b")) return undefined;
+  const csi = /^\x1b\[[0-9;:?<=>]*[@-~]/.exec(text);
+  if (csi) return csi[0];
+  const oscOrApc = /^\x1b[\]_][^\x07\x1b]*(?:\x07|\x1b\\)/.exec(text);
+  if (oscOrApc) return oscOrApc[0];
+  return undefined;
+}
+
+/** Strip all escape sequences, leaving only visible characters. */
+export function stripEscapes(line: string): string {
+  let out = "";
+  let i = 0;
+  while (i < line.length) {
+    const esc = leadingEscapeSequence(line.slice(i));
+    if (esc) {
+      i += esc.length;
+      continue;
+    }
+    out += line[i];
+    i += 1;
+  }
+  return out;
+}
+
+/**
+ * Wrap the visible-column range [startCol, endCol) in inverse video while
+ * preserving every embedded escape sequence (colors, cursor APC marker).
+ * Columns are counted per visible character (width 1 approximation).
+ */
 export function invertColumnRange(line: string, startCol: number, endCol: number): string {
-  const total = visibleWidth(line);
-  const clampedStart = Math.max(0, Math.min(startCol, total));
-  const clampedEnd = Math.max(clampedStart, Math.min(endCol, total));
-  if (clampedEnd <= clampedStart) return line;
-
-  const before = sliceByColumn(line, 0, clampedStart);
-  const middle = sliceByColumn(line, clampedStart, clampedEnd - clampedStart);
-  const middleWidth = visibleWidth(middle);
-  const after = sliceByColumn(line, clampedStart + middleWidth, total - (clampedStart + middleWidth));
-
-  return `${before}\x1b[7m${middle}\x1b[27m${after}`;
+  if (endCol <= startCol) return line;
+  let out = "";
+  let col = 0;
+  let i = 0;
+  let inverted = false;
+  while (i < line.length) {
+    const esc = leadingEscapeSequence(line.slice(i));
+    if (esc) {
+      const isCursorMarker = esc.startsWith("\x1b_");
+      if (isCursorMarker) {
+        // The TUI replaces the APC marker plus the following character with
+        // its own styled cursor cell ending in a full attribute reset. Keep
+        // marker + char atomic (nothing injected between them), close our
+        // inversion beforehand, and re-open it after the cursor cell so the
+        // reset does not wipe the rest of the selection highlight.
+        if (inverted) {
+          out += "\x1b[27m";
+          inverted = false;
+        }
+        out += esc;
+        i += esc.length;
+        if (i < line.length && !line.startsWith("\x1b", i)) {
+          out += line[i];
+          col += 1;
+          i += 1;
+        }
+        continue;
+      }
+      out += esc;
+      i += esc.length;
+      // The base render carries its own SGR sequences inside the row (the
+      // software cursor is [7m<char>[0m, colors reset with [0m). Any of
+      // them can cancel our inversion mid-span, so re-assert it after
+      // every SGR while the span is open.
+      if (inverted && /m$/.test(esc) && esc.startsWith("\x1b[")) {
+        out += "\x1b[7m";
+      }
+      continue;
+    }
+    if (!inverted && col >= startCol && col < endCol) {
+      out += "\x1b[7m";
+      inverted = true;
+    }
+    if (inverted && col >= endCol) {
+      out += "\x1b[27m";
+      inverted = false;
+    }
+    out += line[i];
+    col += 1;
+    i += 1;
+  }
+  if (inverted) out += "\x1b[27m";
+  return out;
 }
 
 // =============================================================================
@@ -260,20 +339,43 @@ const SELECTION_SHIFT_KEYS = [
   "alt+shift+right",
 ] as const;
 
-class SelectEditor extends CustomEditor {
+/**
+ * Structural view of the editor instance we graft onto. Any pi-tui Editor
+ * subclass satisfies this, including pi-powerline-footer's BashModeEditor.
+ */
+interface GraftableEditor {
+  getCursor(): { line: number; col: number };
+  getLines(): string[];
+  setText(text: string): void;
+  getPaddingX(): number;
+  handleInput(data: string): void;
+  render(width: number): string[];
+}
+
+class SelectionBehavior {
   private anchor: CursorPos | undefined;
 
-  constructor(tui: TUI, theme: EditorTheme, keybindings: KeybindingsManager) {
-    super(tui, theme, keybindings);
-  }
+  constructor(
+    private readonly editor: GraftableEditor,
+    private readonly originalHandleInput: (data: string) => void,
+    private readonly originalRender: (width: number) => string[],
+  ) {}
 
   private get rawState(): { lines: string[]; cursorLine: number; cursorCol: number } {
     // See file header: Editor.state is private in pi-tui's type declarations.
-    return (this as unknown as { state: { lines: string[]; cursorLine: number; cursorCol: number } }).state;
+    return (this.editor as unknown as { state: { lines: string[]; cursorLine: number; cursorCol: number } }).state;
+  }
+
+  private requestRender(): void {
+    try {
+      (this.editor as unknown as { tui?: { requestRender?: () => void } }).tui?.requestRender?.();
+    } catch {
+      // Rendering refresh is best-effort; the next keystroke repaints anyway.
+    }
   }
 
   private currentPos(): CursorPos {
-    const cursor = this.getCursor();
+    const cursor = this.editor.getCursor();
     return { line: cursor.line, col: cursor.col };
   }
 
@@ -284,7 +386,7 @@ class SelectEditor extends CustomEditor {
   private clearSelection(): void {
     if (this.anchor === undefined) return;
     this.anchor = undefined;
-    this.tui.requestRender();
+    this.requestRender();
   }
 
   private currentRange(): SelectionRange | undefined {
@@ -308,10 +410,10 @@ class SelectEditor extends CustomEditor {
     if (this.anchor === undefined) {
       this.anchor = this.currentPos();
     }
-    const lines = this.getLines();
+    const lines = this.editor.getLines();
     const next = mover(lines, this.currentPos());
     this.setCursorTo(next);
-    this.tui.requestRender();
+    this.requestRender();
   }
 
   private extendSelectionSimple(deltaLine: number, deltaCol: number, toLineEdge?: "start" | "end"): void {
@@ -332,23 +434,23 @@ class SelectEditor extends CustomEditor {
   private deleteSelection(): boolean {
     const range = this.currentRange();
     if (!range) return false;
-    const lines = this.getLines();
+    const lines = this.editor.getLines();
     const { lines: newLines, cursor } = deleteRange(lines, range);
     this.anchor = undefined;
-    this.setText(newLines.join("\n"));
+    this.editor.setText(newLines.join("\n"));
     // setText() always parks the cursor at the end of the new text; walk
     // it back to where the deletion actually left it via the same public
     // grapheme-safe movement used for shift+arrow (left-only backtrack is
     // sufficient since setText places the cursor after all new content).
     this.setCursorTo(cursor);
-    this.tui.requestRender();
+    this.requestRender();
     return true;
   }
 
   private copySelectionToClipboard(): void {
     const range = this.currentRange();
     if (!range) return;
-    const text = extractRangeText(this.getLines(), range);
+    const text = extractRangeText(this.editor.getLines(), range);
     try {
       const proc = spawn("pbcopy");
       proc.stdin.write(text);
@@ -361,10 +463,10 @@ class SelectEditor extends CustomEditor {
       // Never let clipboard failure break the editor.
     }
     this.anchor = undefined;
-    this.tui.requestRender();
+    this.requestRender();
   }
 
-  override handleInput(data: string): void {
+  handleInput(data: string): void {
     try {
       for (const key of SELECTION_SHIFT_KEYS) {
         if (!matchesKey(data, key)) continue;
@@ -421,7 +523,7 @@ class SelectEditor extends CustomEditor {
       // super perform the actual insertion at the now-collapsed cursor.
       if (this.hasSelection() && this.looksLikeReplacingInput(data)) {
         this.deleteSelection();
-        super.handleInput(data);
+        this.originalHandleInput(data);
         return;
       }
 
@@ -431,7 +533,7 @@ class SelectEditor extends CustomEditor {
         this.clearSelection();
       }
 
-      super.handleInput(data);
+      this.originalHandleInput(data);
     } catch {
       // Selection handling must never break the editor: fall back to
       // stock behavior for this keystroke.
@@ -440,7 +542,7 @@ class SelectEditor extends CustomEditor {
       } catch {
         // ignore
       }
-      super.handleInput(data);
+      this.originalHandleInput(data);
     }
   }
 
@@ -476,8 +578,8 @@ class SelectEditor extends CustomEditor {
     return true;
   }
 
-  override render(width: number): string[] {
-    const base = super.render(width);
+  render(width: number): string[] {
+    const base = this.originalRender(width);
     try {
       const range = this.currentRange();
       if (!range) return base;
@@ -488,13 +590,13 @@ class SelectEditor extends CustomEditor {
   }
 
   private highlightRange(rendered: string[], width: number, range: SelectionRange): string[] {
-    const paddingX = this.getPaddingX();
+    const paddingX = this.editor.getPaddingX();
     const maxPadding = Math.max(0, Math.floor((width - 1) / 2));
     const effectivePaddingX = Math.min(paddingX, maxPadding);
     const contentWidth = Math.max(1, width - effectivePaddingX * 2);
     const layoutWidth = Math.max(1, contentWidth - (effectivePaddingX ? 0 : 1));
 
-    const lines = this.getLines();
+    const lines = this.editor.getLines();
     const visualLines = buildVisualLines(lines, layoutWidth);
 
     // rendered[] includes a top border row before the first content row
@@ -534,18 +636,62 @@ class SelectEditor extends CustomEditor {
 
       const row = out[rowIndex];
       if (row === undefined) continue;
-      const leftPad = " ".repeat(effectivePaddingX);
-      const innerRow = effectivePaddingX > 0 ? row.slice(leftPad.length, row.length - leftPad.length) : row;
-      const decorated = invertColumnRange(innerRow, visualStart, visualEnd);
-      out[rowIndex] = effectivePaddingX > 0 ? `${leftPad}${decorated}${leftPad}` : decorated;
+      // Rows can carry a prompt prefix (e.g. "> ") and padding before the
+      // content; locate the logical text inside the visible row to get the
+      // real column offset instead of assuming the content starts at 0.
+      const stripped = stripEscapes(row);
+      if (vl.text.length === 0) continue;
+      const offset = stripped.indexOf(vl.text);
+      if (offset < 0) continue;
+      out[rowIndex] = invertColumnRange(row, offset + visualStart, offset + visualEnd);
     }
     return out;
   }
 }
 
+const SELECTION_ATTACHED = Symbol.for("pi.select-editor.attached");
+const COMPOSED_FACTORY = Symbol.for("pi.select-editor.composed");
+
+/** Graft selection behavior onto an existing editor instance, idempotently. */
+function attachSelection(editor: GraftableEditor): void {
+  const anyEditor = editor as unknown as Record<PropertyKey, unknown>;
+  if (anyEditor[SELECTION_ATTACHED]) return;
+  anyEditor[SELECTION_ATTACHED] = true;
+  const behavior = new SelectionBehavior(
+    editor,
+    editor.handleInput.bind(editor),
+    editor.render.bind(editor),
+  );
+  anyEditor.handleInput = (data: string) => behavior.handleInput(data);
+  anyEditor.render = (width: number) => behavior.render(width);
+}
+
 export default function (pi: ExtensionAPI) {
   pi.on("session_start", async (_event, ctx) => {
     if (ctx.mode !== "tui") return;
-    ctx.ui.setEditorComponent((tui, theme, keybindings) => new SelectEditor(tui, theme, keybindings));
+    // pi-powerline-footer replaces the editor (BashModeEditor) in its own
+    // session_start handler and would win a direct race: its factory only
+    // reuses the previous editor's autocomplete, discarding the rest. So
+    // defer, capture whatever factory won, and graft selection onto the
+    // editor instance that factory actually produces.
+    setTimeout(() => {
+      try {
+        const previousFactory = ctx.ui.getEditorComponent?.();
+        if (previousFactory && (previousFactory as unknown as Record<PropertyKey, unknown>)[COMPOSED_FACTORY]) {
+          return;
+        }
+        const composed = (tui: TUI, theme: EditorTheme, keybindings: KeybindingsManager) => {
+          const base = previousFactory
+            ? previousFactory(tui, theme, keybindings)
+            : new CustomEditor(tui, theme, keybindings);
+          attachSelection(base as unknown as GraftableEditor);
+          return base;
+        };
+        (composed as unknown as Record<PropertyKey, unknown>)[COMPOSED_FACTORY] = true;
+        ctx.ui.setEditorComponent(composed);
+      } catch {
+        // If composition fails, leave the editor stock.
+      }
+    }, 150);
   });
 }
