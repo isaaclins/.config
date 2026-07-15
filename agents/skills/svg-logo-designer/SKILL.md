@@ -1,5 +1,5 @@
 ---
-name: "SVG Logo Designer"
+name: svg-logo-designer
 description: "Create SVG (vector) logos as hand-authored code: multiple concepts, layouts, and color variants, with export and usage guidance. Use when the user wants a single logo, lettermark, wordmark, icon, or brand mark delivered as a scalable vector file."
 ---
 
