@@ -54,3 +54,6 @@ keybind = opt+backspace=text:\x17
 # now just type a stray character instead of splitting Ghostty.
 keybind = super+d=text:\x02%
 keybind = super+shift+d=text:\x02\x22
+# cmd+w closes the focused tmux pane (prefix+x, bound to kill-pane without
+# confirm). Closing the actual Ghostty window stays on cmd+shift+w.
+keybind = super+w=text:\x02x
