@@ -1,0 +1,2 @@
+- [2026-07-15] Isaac's delegation policy: when delegating to subagents, always track/report usage cost, write tightly scoped self-contained prompts, and prefer cheaper models (e.g. haiku/sonnet-class) unless the task truly needs a top model.
+- [2026-07-15] Before reverse-engineering any tool's behavior (grepping dist bundles, reading minified source), FETCH its online docs first (web_search/fetch_content). Isaac explicitly prefers docs over source archaeology.

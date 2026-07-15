@@ -8,6 +8,7 @@ import {
   readFileSync,
   writeFileSync,
 } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
 
 /**
@@ -21,12 +22,16 @@ import { join } from "node:path";
  *    actually changes. Costs zero LLM output tokens; only a small amount of
  *    injected context.
  *
- * 2. Notes (.pi/memory.local.md): durable facts the agent or user records
- *    via the `remember` tool or the /remember command while working. No
- *    background summarizer fork, so no extra quota burn.
+ * 2. Notes, two scopes:
+ *    - Project (.pi/memory.local.md in the repo, git-excluded): facts about
+ *      THIS repo (build/test commands, architecture gotchas).
+ *    - Global (~/.config/pi/memory.md, dotfiles-tracked): facts about the
+ *      user, their preferences, tools, and cross-repo habits.
+ *    Recorded via the `remember` tool (scope param) or /remember command
+ *    (-g/--global flag). No background summarizer fork, so no quota burn.
  *
- * Both are injected into the system prompt on the first prompt of a session.
- * Both files are excluded from git via .git/info/exclude (local only).
+ * All layers are injected into the system prompt on the first prompt of a
+ * session; global notes are injected even outside git repos.
  */
 
 const MAX_TREE_LINES = 80;
@@ -44,21 +49,29 @@ export default function (pi: ExtensionAPI) {
     injectedThisSession = true;
 
     const cwd = process.cwd();
-    if (!isGitRepo(cwd)) return;
-
-    ensureGitExcludes(cwd);
-    const repoMap = getOrBuildRepoMap(cwd);
-    const notes = readNotes(cwd);
-
     const sections: string[] = [];
-    if (repoMap) {
+
+    const globalNotes = readNotesFile(globalNotesPath());
+    if (globalNotes) {
       sections.push(
-        "## Repo map (auto-generated, trust it, do not re-scout the repo structure)\n\n" +
-          repoMap,
+        "## Global memory notes (about the user and their environment, all projects)\n\n" +
+          globalNotes,
       );
     }
-    if (notes) {
-      sections.push("## Repo memory notes (learned in previous sessions)\n\n" + notes);
+
+    if (isGitRepo(cwd)) {
+      ensureGitExcludes(cwd);
+      const repoMap = getOrBuildRepoMap(cwd);
+      const notes = readNotesFile(notesPath(cwd));
+      if (repoMap) {
+        sections.push(
+          "## Repo map (auto-generated, trust it, do not re-scout the repo structure)\n\n" +
+            repoMap,
+        );
+      }
+      if (notes) {
+        sections.push("## Repo memory notes (learned in previous sessions)\n\n" + notes);
+      }
     }
     if (sections.length === 0) return;
 
@@ -71,28 +84,44 @@ export default function (pi: ExtensionAPI) {
     name: "remember",
     label: "Remember",
     description:
-      "Persist a durable fact about this repo for future sessions (build/test commands, architecture decisions, gotchas, file locations). Use whenever you learn something that took effort to discover and will be useful again. Keep each note to one concise line.",
+      "Persist a durable fact for future sessions. scope='project' (default) for facts about THIS repo (build/test commands, architecture decisions, gotchas, file locations). scope='global' for facts about the user, their preferences, tools, or habits that apply across ALL projects. Keep each note to one concise line.",
     parameters: Type.Object({
-      note: Type.String({ description: "One-line durable fact about this repo" }),
+      note: Type.String({ description: "One-line durable fact" }),
+      scope: Type.Optional(
+        Type.Union([Type.Literal("project"), Type.Literal("global")], {
+          description:
+            "'project' (default): about this repo only. 'global': about the user/environment, applies everywhere.",
+        }),
+      ),
     }),
     async execute(_toolCallId, params) {
-      appendNote(process.cwd(), params.note);
+      const scope = params.scope === "global" ? "global" : "project";
+      const path = scope === "global" ? globalNotesPath() : notesPath(process.cwd());
+      appendNote(path, params.note);
       return {
-        content: [{ type: "text", text: `Remembered: ${params.note}` }],
+        content: [{ type: "text", text: `Remembered (${scope}): ${params.note}` }],
         details: {},
       };
     },
   });
 
   pi.registerCommand("remember", {
-    description: "Save a repo memory note for future sessions",
+    description: "Save a memory note for future sessions (-g/--global for user-wide notes)",
     handler: async (args, ctx) => {
-      if (!args?.trim()) {
-        ctx.ui.notify("Usage: /remember <note>", "warning");
+      let text = args?.trim() ?? "";
+      const isGlobal = /^(-g|--global)\s+/.test(text);
+      if (isGlobal) text = text.replace(/^(-g|--global)\s+/, "");
+      if (!text) {
+        ctx.ui.notify("Usage: /remember [-g|--global] <note>", "warning");
         return;
       }
-      appendNote(process.cwd(), args.trim());
-      ctx.ui.notify("Note saved to .pi/memory.local.md", "info");
+      if (isGlobal) {
+        appendNote(globalNotesPath(), text);
+        ctx.ui.notify("Note saved to ~/.config/pi/memory.md (global)", "info");
+      } else {
+        appendNote(notesPath(process.cwd()), text);
+        ctx.ui.notify("Note saved to .pi/memory.local.md", "info");
+      }
     },
   });
 }
@@ -189,16 +218,19 @@ function notesPath(cwd: string): string {
   return join(piDir(cwd), "memory.local.md");
 }
 
-function readNotes(cwd: string): string {
-  const path = notesPath(cwd);
+function globalNotesPath(): string {
+  return join(homedir(), ".config", "pi", "memory.md");
+}
+
+function readNotesFile(path: string): string {
   if (!existsSync(path)) return "";
   const lines = readFileSync(path, "utf8").trim().split("\n");
   return lines.slice(-MAX_NOTE_LINES).join("\n");
 }
 
-function appendNote(cwd: string, note: string): void {
+function appendNote(path: string, note: string): void {
   const date = new Date().toISOString().slice(0, 10);
-  appendFileSync(notesPath(cwd), `- [${date}] ${note}\n`);
+  appendFileSync(path, `- [${date}] ${note}\n`);
 }
 
 function ensureGitExcludes(cwd: string): void {
