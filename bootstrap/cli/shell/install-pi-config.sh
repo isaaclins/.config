@@ -48,6 +48,6 @@ link "$PI_HOME/settings.json" "$CANON/settings.json"
 link "$PI_HOME/AGENTS.md" "$CANON/AGENTS.md"
 link "$PI_HOME/extensions" "$CANON/extensions"
 
-# Regenerate the fish-function shims Pi's bash puts on PATH (shellCommandPrefix),
-# so `!`/`!!` commands can use personal fish aliases like `gs`.
-bash "$CANON/generate-fish-shims.sh"
+# Note: the fish-function shims Pi's bash puts on PATH (shellCommandPrefix)
+# are regenerated automatically on every session start by the fish-shims
+# extension (~/.config/pi/extensions/fish-shims.ts); nothing to do here.
