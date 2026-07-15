@@ -62,9 +62,15 @@ export default function (pi: ExtensionAPI) {
       prompt: Type.Optional(
         Type.String({ description: "Optional initial prompt to launch the new pi session with" }),
       ),
+      model: Type.Optional(
+        Type.String({
+          description:
+            "Model for the spawned session. Defaults to the cheap anthropic/claude-haiku-4-5. Only pass a stronger model when the task truly needs it.",
+        }),
+      ),
     }),
     async execute(_toolCallId, params) {
-      const result = await spawnLiveAgent(pi, process.cwd(), params.prompt);
+      const result = await spawnLiveAgent(pi, process.cwd(), params.prompt, params.model);
       return {
         content: [{ type: "text", text: result.message }],
         details: { pane: result.pane ?? null, mode: result.mode },
@@ -139,23 +145,42 @@ async function spawnLiveAgent(
   pi: ExtensionAPI,
   cwd: string,
   prompt: string | undefined,
+  model?: string,
 ): Promise<SpawnResult> {
   if (process.env.TMUX) {
-    return spawnInTmux(pi, cwd, prompt);
+    return spawnInTmux(pi, cwd, prompt, model);
   }
-  return spawnInGhostty(pi, cwd, prompt);
+  return spawnInGhostty(pi, cwd, prompt, model);
+}
+
+// Cost guardrail: spawned helper sessions default to the cheapest capable
+// model at low thinking. Big default models burn subscription quota fast.
+const DEFAULT_SPAWN_MODEL = "anthropic/claude-haiku-4-5";
+const DEFAULT_SPAWN_THINKING = "low";
+
+function buildPiLaunch(prompt: string | undefined, model?: string): string {
+  const parts = [
+    "pi",
+    "--model",
+    shellQuoteSingle(model ?? DEFAULT_SPAWN_MODEL),
+    "--thinking",
+    DEFAULT_SPAWN_THINKING,
+  ];
+  if (prompt) parts.push(shellQuoteSingle(prompt));
+  return parts.join(" ");
 }
 
 async function spawnInTmux(
   pi: ExtensionAPI,
   cwd: string,
   prompt: string | undefined,
+  model?: string,
 ): Promise<SpawnResult> {
   // Build the command to run inside the new pane. Launching `pi` directly
   // with the prompt as its argv (rather than launching `pi` then sending
   // the prompt via a follow-up send-keys) avoids a race against pi's own
   // startup time, which is unreliable to pad with a fixed delay.
-  const paneCommand = prompt ? `pi ${shellQuoteSingle(prompt)}` : "pi";
+  const paneCommand = buildPiLaunch(prompt, model);
 
   const result = await pi.exec(
     "tmux",
@@ -183,8 +208,12 @@ async function spawnInGhostty(
   pi: ExtensionAPI,
   cwd: string,
   prompt: string | undefined,
+  model?: string,
 ): Promise<SpawnResult> {
-  const args = ["-na", "Ghostty", "--args", `--working-directory=${cwd}`, "-e", "pi"];
+  const args = [
+    "-na", "Ghostty", "--args", `--working-directory=${cwd}`,
+    "-e", "pi", "--model", model ?? DEFAULT_SPAWN_MODEL, "--thinking", DEFAULT_SPAWN_THINKING,
+  ];
   if (prompt) args.push(prompt);
 
   const result = await pi.exec("open", args, { timeout: 10_000 });
