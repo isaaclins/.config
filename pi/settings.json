@@ -1,5 +1,6 @@
 {
   "lastChangelogVersion": "0.80.3",
+  "externalEditor": "zed-preview --wait",
   "shellCommandPrefix": "export PATH=\"$HOME/.config/pi/fish-shims:$PATH\"",
   "theme": "dark",
   "defaultProvider": "anthropic",
