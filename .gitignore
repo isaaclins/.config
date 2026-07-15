@@ -100,3 +100,4 @@ cmux/*.bak
 
 # Pi fish shims are generated output (generate-fish-shims.sh); never track them.
 pi/fish-shims/
+.pi-subagents/
