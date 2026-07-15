@@ -11,8 +11,13 @@ My handcrafted & personal dotfiles for macOS.
    bash ~/.config/bootstrap.sh
    ```
 
-This will install Homebrew (if missing) and then run every
-`bootstrap/**/install-*.sh` script (recursively).
+This will install Homebrew (if missing), install everything declared in the
+`Brewfile` via `brew bundle`, and then run the non-brew config steps under
+`bootstrap/**/install-*.sh` (symlinks, editor/tmux setup, etc.).
+
+Packages are declarative: edit `Brewfile` by hand, or just `brew install ...` /
+`brew uninstall ...` in fish and the `brew` wrapper re-runs `brew bundle dump`
+to keep `Brewfile` in sync and pushes it.
 
 ## Assumptions (macOS)
 
@@ -25,22 +30,22 @@ This will install Homebrew (if missing) and then run every
 
 **Safe to share (generally):**
 
-- `bootstrap/` install scripts
+- `Brewfile` (declarative package manifest)
+- `bootstrap/` config/symlink scripts
 - `fish/` functions and conf.d scripts (if they don’t embed absolute paths)
 - `hammerspoon/` config
 - `prettier/` config
 
 **Per-user / do not commit / keep local:**
 
-- `.versions` (generated on each bootstrap run)
 - `.java-default` (persisted default for `setjava`)
 - `gh/hosts.yml` (may contain auth tokens depending on `gh` setup)
 - App configs that embed absolute home paths (e.g. `spicetify/config-xpui.ini`)
 
 ## Checks
 
-- `scripts/check.sh` runs `shellcheck` against `bootstrap/**/*.sh` (if
-  `shellcheck` is installed).
+- `configcheck` (fish function) runs `shellcheck` against `bootstrap/**/*.sh`
+  and `bootstrap.sh` (if `shellcheck` is installed).
 
 ## Fish: Java Version Manager
 

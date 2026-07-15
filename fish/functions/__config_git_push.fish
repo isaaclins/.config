@@ -1,6 +1,6 @@
 # ~/.config/fish/functions/__config_git_push.fish
 # Purpose: Push ~/.config commits to upstream or origin.
-# Usage: Internal helper used by __config_git_commit_and_push_bootstrap.
+# Usage: Internal helper used by __config_git_commit_and_push_brewfile.
 function __config_git_push --description "Push ~/.config commits to upstream or origin"
     set -l repo_root $argv[1]
     set -l branch $argv[2]

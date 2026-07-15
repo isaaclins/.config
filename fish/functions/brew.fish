@@ -1,6 +1,8 @@
 # ~/.config/fish/functions/brew.fish
-# Purpose: Wraps Homebrew, records package/cask versions, auto-generates bootstrap install scripts, and syncs ~/.config.
-# Usage: Use `brew ...` normally in fish; successful install/reinstall/upgrade commands update .versions and sync bootstrap/.
+# Purpose: Wrap Homebrew so that any command changing the installed set syncs
+#   ~/.config/Brewfile via `brew bundle dump`, then commits and pushes it.
+# Usage: Use `brew ...` normally in fish; successful install/uninstall/tap/untap
+#   commands regenerate the Brewfile and push it to ~/.config.
 function __brew_load_config_git_helpers --description "Load config git helpers when autoload did not"
     if functions -q __config_git_pull
         return 0
@@ -12,48 +14,27 @@ function __brew_load_config_git_helpers --description "Load config git helpers w
         return 0
     end
 
-    for helper in __config_git_repo_root __config_git_pull __config_git_push __config_git_commit_and_push_bootstrap
+    for helper in __config_git_repo_root __config_git_pull __config_git_push __config_git_commit_and_push_brewfile
         if test -f "$dir/$helper.fish"
             source "$dir/$helper.fish"
         end
     end
 end
 
-function brew --description "brew wrapper with .versions tracking"
+function brew --description "brew wrapper that keeps ~/.config/Brewfile in sync"
     set -l subcmd
     if test (count $argv) -gt 0
         set subcmd $argv[1]
     end
 
-    set -l track_subcmds install reinstall upgrade
-    set -l should_track 0
-    if contains -- "$subcmd" $track_subcmds
-        set should_track 1
+    # Subcommands that change which packages are installed -> resync Brewfile.
+    set -l sync_subcmds install reinstall uninstall remove rm tap untap
+    set -l should_sync 0
+    if contains -- "$subcmd" $sync_subcmds
+        set should_sync 1
     end
 
-    set -l is_cask 0
-    set -l pkgs
-    if test $should_track -eq 1; and test (count $argv) -gt 1
-        for idx in (seq 2 (count $argv))
-            set -l arg $argv[$idx]
-            switch "$arg"
-                case --cask '-c'
-                    set is_cask 1
-                    continue
-                case '--formula'
-                    set is_cask 0
-                    continue
-            end
-
-            if string match -qr '^-' -- "$arg"
-                continue
-            end
-
-            set -a pkgs "$arg"
-        end
-    end
-
-    if test $should_track -eq 1; and test (count $pkgs) -gt 0
+    if test $should_sync -eq 1
         __brew_load_config_git_helpers
         __config_git_pull
     end
@@ -61,15 +42,15 @@ function brew --description "brew wrapper with .versions tracking"
     command brew $argv
     set -l brew_status $status
 
-    if test $brew_status -eq 0; and test $should_track -eq 1; and test (count $pkgs) -gt 0
-        for pkg in $pkgs
-            __brew_record_version "$pkg" "$is_cask"
-            if test "$subcmd" = "install"; or test "$subcmd" = "reinstall"
-                __bootstrap_generate_installer "$pkg" "$is_cask"
-            end
-        end
+    if test $brew_status -eq 0; and test $should_sync -eq 1
+        set -l brewfile "$HOME/.config/Brewfile"
+        command brew bundle dump --force --file="$brewfile"
         __brew_load_config_git_helpers
-        __config_git_commit_and_push_bootstrap $pkgs
+        set -l pkgs
+        if test (count $argv) -gt 1
+            set pkgs $argv[2..-1]
+        end
+        __config_git_commit_and_push_brewfile $pkgs
     end
 
     return $brew_status
