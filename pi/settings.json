@@ -3,7 +3,7 @@
   "defaultModel": "claude-fable-5",
   "defaultProjectTrust": "always",
   "defaultProvider": "anthropic",
-  "defaultThinkingLevel": "medium",
+  "defaultThinkingLevel": "high",
   "doubleEscapeAction": "tree",
   "enabledModels": [
     "claude-opus-4-8",
