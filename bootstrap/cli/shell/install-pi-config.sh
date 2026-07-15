@@ -6,8 +6,11 @@
 #     ~/.pi/agent/AGENTS.md      -> ~/.config/agents/AGENTS.md (ONE unified
 #                                   rules file for Claude, Codex, and Pi)
 #     ~/.pi/agent/extensions     -> ~/.config/pi/extensions (whole-dir link)
+#     ~/.pi/agent/assets         -> ~/.config/pi/assets (Claude Notifier.app
+#                                   needed by the notify-sound extension)
 #   Everything else under ~/.pi/agent is runtime state (auth.json, sessions,
-#   npm packages, git clones, run history, assets) and stays untracked on disk.
+#   npm packages, git clones, run history) and stays untracked on disk.
+#   auth.json is a secret: on a new machine, run `pi` once and log in.
 # Usage: Idempotent. Run via bootstrap.sh, or directly:
 #   bash ~/.config/bootstrap/cli/shell/install-pi-config.sh
 
@@ -48,6 +51,7 @@ link() {
 link "$PI_HOME/settings.json" "$CANON/settings.json"
 link "$PI_HOME/AGENTS.md" "$HOME/.config/agents/AGENTS.md"
 link "$PI_HOME/extensions" "$CANON/extensions"
+link "$PI_HOME/assets" "$CANON/assets"
 
 # Note: the fish-function shims Pi's bash puts on PATH (shellCommandPrefix)
 # are regenerated automatically on every session start by the fish-shims
