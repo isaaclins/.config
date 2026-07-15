@@ -3,7 +3,8 @@
 # Purpose: Wire the Pi coding agent (~/.pi/agent) to the dotfile-tracked config
 #   at ~/.config/pi. Only deliberate config is tracked and symlinked:
 #     ~/.pi/agent/settings.json  -> ~/.config/pi/settings.json
-#     ~/.pi/agent/AGENTS.md      -> ~/.config/pi/AGENTS.md
+#     ~/.pi/agent/AGENTS.md      -> ~/.config/agents/AGENTS.md (ONE unified
+#                                   rules file for Claude, Codex, and Pi)
 #     ~/.pi/agent/extensions     -> ~/.config/pi/extensions (whole-dir link)
 #   Everything else under ~/.pi/agent is runtime state (auth.json, sessions,
 #   npm packages, git clones, run history, assets) and stays untracked on disk.
@@ -45,7 +46,7 @@ link() {
 }
 
 link "$PI_HOME/settings.json" "$CANON/settings.json"
-link "$PI_HOME/AGENTS.md" "$CANON/AGENTS.md"
+link "$PI_HOME/AGENTS.md" "$HOME/.config/agents/AGENTS.md"
 link "$PI_HOME/extensions" "$CANON/extensions"
 
 # Note: the fish-function shims Pi's bash puts on PATH (shellCommandPrefix)

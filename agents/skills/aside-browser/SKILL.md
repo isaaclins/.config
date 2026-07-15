@@ -148,3 +148,10 @@ console.log(`saved ${res1.status} ${res1.headers.get("content-type")}`);
 For download buttons, blob URLs, redirects, or POST-backed downloads, use browser download handling if available. Save user-visible files under `./artifacts/`, then verify file existence, size, and expected MIME type or extension.
 
 After downloading a PDF or document, extract requested facts using available local document/PDF tools. Report only facts found in the file or confirmed on the page.
+
+## Hard-won gotchas (Isaac's setup)
+
+- The Aside Browser app must be running first: `open -a Aside`, otherwise the daemon refuses connections (ECONNREFUSED on 127.0.0.1:21420).
+- Each `aside repl` CLI process is its own ephemeral session; tabs it opened close on exit. Do multi-step work in one invocation.
+- `fs` writes inside the REPL are jailed to the session dir (`Path escapes agent root`) and that dir is wiped on exit. To extract files: write relative, keep the session alive with `await sleep(...)`, and copy from `~/.aside/u/0/agents/main/sessions/<id>/` in a parallel shell before the session ends.
+- REPL stdout is buffered when redirected to a file; poll the sessions directory for artifacts instead of parsing the log.

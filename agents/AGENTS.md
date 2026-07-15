@@ -39,6 +39,8 @@ Rule of thumb: if writing the delegation prompt would take as long as doing the 
 ## Override
 If the user explicitly tells you to do a task yourself, do it inline. This default yields to a direct instruction.
 
+Agent-type names vary per tool: in Claude Code use the `implementer` agent type via the Agent tool; in Pi use the subagent tool (worker etc.). The doctrine above applies to both.
+
 # Skills: proactive use and self-authorship
 
 ## Use skills proactively
@@ -57,9 +59,10 @@ How:
 - Commit it to the dotfiles repo like any other change.
 - Do not create skills for one-off trivia or things any model already knows. The bar is: would a future session without this conversation redo real work?
 
-## Maintain skills
+## Maintain skills and memory
 - When a skill turns out wrong, outdated, or incomplete while you use it, fix it in the same session and commit the fix.
 - Use the memory tools (remember, repo/user memory) to spot recurrence across sessions. Catching yourself re-deriving something you have derived before is the signal to write it down as a skill.
+- Memory hygiene works both ways: you can and should prune memory. When a remembered fact proves deprecated, wrong, or superseded, delete or rewrite it instead of stacking corrections on top.
 
 # Global agent conventions (Isaac)
 
