@@ -1,71 +1,71 @@
 {
-	"lastChangelogVersion": "0.80.3",
-	"externalEditor": "/Users/taaliis4/.config/pi/pi-external-editor",
-	"shellCommandPrefix": "export PATH=\"$HOME/.config/pi/fish-shims:$PATH\"",
-	"theme": "dark",
-	"defaultProvider": "anthropic",
-	"defaultModel": "claude-fable-5",
-	"defaultThinkingLevel": "medium",
-	"enabledModels": [
-		"claude-opus-4-8",
-		"claude-opus-4-6",
-		"claude-sonnet-5",
-		"claude-haiku-4-5",
-		"claude-fable-5"
-	],
-	"packages": [
-		"npm:@gotgenes/pi-anthropic-auth",
-		"npm:pi-web-access",
-		"npm:pi-subagents",
-		"npm:pi-powerline-footer",
-		"git:github.com/injaneity/pi-computer-use@v0.4.2"
-	],
-	"showHardwareCursor": false,
-	"terminal": {
-		"clearOnShrink": false,
-		"showTerminalProgress": true
-	},
-	"collapseChangelog": true,
-	"quietStartup": false,
-	"defaultProjectTrust": "always",
-	"doubleEscapeAction": "tree",
-	"warnings": {
-		"anthropicExtraUsage": false
-	},
-	"powerline": {
-		"preset": "default",
-		"customItems": [
-			{
-				"id": "sub-usage-ok",
-				"position": "right",
-				"prefix": "󰛨 ",
-				"color": "success"
-			},
-			{
-				"id": "sub-usage-warn",
-				"position": "right",
-				"prefix": "󰛨 ",
-				"color": "warning"
-			},
-			{
-				"id": "sub-usage-crit",
-				"position": "right",
-				"prefix": "󰛨 ",
-				"color": "error"
-			}
-		]
-	},
-	"subagents": {
-		"defaultModel": "claude-haiku-4-5",
-		"agentOverrides": {
-			"worker": {
-				"model": "claude-opus-4-8"
-			},
-			"oracle": {
-				"model": "claude-opus-4-8"
-			}
-		}
-	},
-	"followUpMode": "one-at-a-time",
-	"transport": "auto"
+  "collapseChangelog": true,
+  "defaultModel": "claude-fable-5",
+  "defaultProjectTrust": "always",
+  "defaultProvider": "anthropic",
+  "defaultThinkingLevel": "medium",
+  "doubleEscapeAction": "tree",
+  "enabledModels": [
+    "claude-opus-4-8",
+    "claude-opus-4-6",
+    "claude-sonnet-5",
+    "claude-haiku-4-5",
+    "claude-fable-5"
+  ],
+  "externalEditor": "/Users/taaliis4/.config/pi/pi-external-editor",
+  "followUpMode": "one-at-a-time",
+  "lastChangelogVersion": "0.80.3",
+  "packages": [
+    "npm:@gotgenes/pi-anthropic-auth",
+    "npm:pi-web-access",
+    "npm:pi-subagents",
+    "npm:pi-powerline-footer",
+    "git:github.com/injaneity/pi-computer-use@v0.4.2"
+  ],
+  "powerline": {
+    "customItems": [
+      {
+        "color": "success",
+        "id": "sub-usage-ok",
+        "position": "right",
+        "prefix": "󰛨 "
+      },
+      {
+        "color": "warning",
+        "id": "sub-usage-warn",
+        "position": "right",
+        "prefix": "󰛨 "
+      },
+      {
+        "color": "error",
+        "id": "sub-usage-crit",
+        "position": "right",
+        "prefix": "󰛨 "
+      }
+    ],
+    "preset": "default"
+  },
+  "quietStartup": false,
+  "shellCommandPrefix": "export PATH=\"$HOME/.config/pi/fish-shims:$PATH\"",
+  "showHardwareCursor": false,
+  "subagents": {
+    "agentOverrides": {
+      "oracle": {
+        "model": "claude-opus-4-8"
+      },
+      "worker": {
+        "model": "claude-opus-4-8"
+      }
+    },
+    "defaultModel": "claude-haiku-4-5"
+  },
+  "terminal": {
+    "clearOnShrink": false,
+    "showTerminalProgress": true
+  },
+  "theme": "dark",
+  "transport": "auto",
+  "warnings": {
+    "anthropicExtraUsage": false
+  }
 }

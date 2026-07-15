@@ -13,7 +13,7 @@ red()  { printf '\033[31m%s\033[0m\n' "$*" >&2; }
 bold() { printf '\033[1m%s\033[0m\n' "$*" >&2; }
 
 fail() {
-    bold "pre-commit: refusing to commit — looks like a credential leak"
+    bold "pre-commit: refusing to commit - looks like a credential leak"
     red  "$*"
     red  ""
     red  "If this is a false positive, bypass with: git commit --no-verify"
@@ -54,5 +54,35 @@ while IFS= read -r path; do
         fail "secret-shaped string in $path: ${hit:0:24}…"
     fi
 done < <(git diff --cached --name-only --diff-filter=ACM)
+
+# 3. Normalize pi/settings.json key order. pi rewrites the file with arbitrary
+# key order on every save, which produces noisy diffs; sort keys deterministically
+# before committing.
+if git diff --cached --name-only | grep -q '^pi/settings\.json$'; then
+    repo_root="$(git rev-parse --show-toplevel)"
+    settings_path="$repo_root/pi/settings.json"
+    if [ -f "$settings_path" ]; then
+        python3 - "$settings_path" <<'PYSCRIPT'
+import sys
+import json
+
+path = sys.argv[1]
+try:
+    with open(path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(data, f, indent=2, sort_keys=True, ensure_ascii=False)
+        f.write('\n')
+    print(f"Normalized: {path}")
+except json.JSONDecodeError as e:
+    print(f"Warning: {path} has invalid JSON ({e}), skipping normalization", file=sys.stderr)
+    sys.exit(0)
+except Exception as e:
+    print(f"Warning: failed to normalize {path}: {e}", file=sys.stderr)
+    sys.exit(0)
+PYSCRIPT
+        git add "$settings_path"
+    fi
+fi
 
 exit 0
