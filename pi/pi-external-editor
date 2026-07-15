@@ -1,0 +1,8 @@
+#!/bin/sh
+# pi ctrl+g external editor wrapper.
+# Opens the project pi is currently running in (pi spawns this with its own
+# cwd) in Zed Preview, without blocking pi. The temp message file pi passes
+# as $1 is ignored on purpose: pi deletes it the moment this script exits,
+# so opening it would only leave a dead tab in Zed.
+/opt/homebrew/bin/zed-preview "$PWD" >/dev/null 2>&1 &
+exit 0
