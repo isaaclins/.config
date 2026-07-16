@@ -31,9 +31,10 @@ macos-titlebar-style = transparent
 
 # Behavior
 mouse-hide-while-typing = true
-# Keep drag selection native and persistent even when local or remote apps
-# (notably tmux over sshh) request terminal mouse reporting.
-mouse-reporting = false
+# Plain clicks go to local/remote tmux for pane selection. Shift is always
+# reserved for native persistent selection: Shift+drag, then Cmd+C.
+mouse-reporting = true
+mouse-shift-capture = never
 clipboard-read = allow
 
 # Keybinds (only remaps; macOS defaults like super+c/v/a/t/w, shift+arrows and
