@@ -10,6 +10,7 @@ import {
   validateConfig,
 } from "../lib/codrive-config.ts";
 import {
+  captureChildIpcEnvironment,
   chooseSocketDirectory,
   decodeFrame,
   encodeFrame,
@@ -233,6 +234,25 @@ test("multiple children can report concurrently and malformed clients are isolat
   await server.close();
   if (old === undefined) delete process.env.XDG_RUNTIME_DIR;
   else process.env.XDG_RUNTIME_DIR = old;
+});
+
+test("capturing child IPC credentials scrubs current and legacy env keys", () => {
+  const env: NodeJS.ProcessEnv = {
+    PI_CODRIVE_SOCKET: "/tmp/socket",
+    PI_CODRIVE_NONCE: "nonce",
+    PI_SPAWN_NOTIFY_FILE: "/tmp/notify",
+    PI_SPAWN_AGENT_REPORT_FILE: "/tmp/report",
+    UNRELATED: "kept",
+  };
+  const captured = captureChildIpcEnvironment(env);
+  assert.equal(captured.PI_CODRIVE_SOCKET, "/tmp/socket");
+  assert.equal(captured.PI_CODRIVE_NONCE, "nonce");
+  assert.equal(env.PI_CODRIVE_SOCKET, undefined);
+  assert.equal(env.PI_CODRIVE_NONCE, undefined);
+  assert.equal(env.PI_SPAWN_NOTIFY_FILE, undefined);
+  assert.equal(env.PI_SPAWN_AGENT_REPORT_FILE, undefined);
+  assert.equal(env.UNRELATED, "kept");
+  assert.deepEqual(captureChildIpcEnvironment({}), {});
 });
 
 test("wrong nonce and unavailable parent fail without throwing", async () => {

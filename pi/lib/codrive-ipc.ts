@@ -17,6 +17,29 @@ import {
 export const IPC_VERSION = 1;
 export const SOCKET_ENV = "PI_CODRIVE_SOCKET";
 export const NONCE_ENV = "PI_CODRIVE_NONCE";
+const LEGACY_CHILD_ENV_KEYS = [
+  "PI_SPAWN_NOTIFY_FILE",
+  "PI_SPAWN_AGENT_REPORT_FILE",
+] as const;
+
+/**
+ * Read the child IPC credentials once and scrub them from the environment so
+ * nested processes (for example a pi launched from a child's bash tool) can
+ * never inherit the parent's socket and report as an impostor child.
+ */
+export function captureChildIpcEnvironment(
+  env: NodeJS.ProcessEnv = process.env,
+): NodeJS.ProcessEnv {
+  const captured: NodeJS.ProcessEnv = {};
+  const socketPath = env[SOCKET_ENV];
+  const nonce = env[NONCE_ENV];
+  if (socketPath) captured[SOCKET_ENV] = socketPath;
+  if (nonce) captured[NONCE_ENV] = nonce;
+  delete env[SOCKET_ENV];
+  delete env[NONCE_ENV];
+  for (const legacyKey of LEGACY_CHILD_ENV_KEYS) delete env[legacyKey];
+  return captured;
+}
 export interface IpcMessage {
   version: 1;
   nonce: string;

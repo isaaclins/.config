@@ -15,6 +15,7 @@ import {
 import {
   NONCE_ENV,
   SOCKET_ENV,
+  captureChildIpcEnvironment,
   sendReport,
   startIpcServer,
   type IpcServer,
@@ -39,6 +40,7 @@ const PANE = /^%\d+$/;
 const WAITING_WIDGET = "pi-codrive-waiting";
 const REPORT_MESSAGE = "pi-codrive-report";
 const CHILD_ENV = isCodriveChildEnvironment();
+const CHILD_IPC_ENV = captureChildIpcEnvironment();
 
 export default function piCodrive(pi: ExtensionAPI): void {
   const histories = new Map<string, SpawnReportRecord[]>();
@@ -115,7 +117,7 @@ export default function piCodrive(pi: ExtensionAPI): void {
           randomUUID(),
           process.env.TMUX_PANE,
         );
-        await sendReport(report, childConfig);
+        await sendReport(report, childConfig, CHILD_IPC_ENV);
       } catch {
         // Reporting is best-effort and must never break child Pi.
       }
