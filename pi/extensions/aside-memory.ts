@@ -3,7 +3,7 @@ import { Type } from "typebox";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import { listMemoryFiles, readMemoryFile, truncateMemoryOutput } from "./aside-memory-helpers.ts";
+import { listMemoryFiles, readMemoryFile, truncateMemoryOutput } from "../lib/aside-memory-helpers.ts";
 
 /** Read-only bridge to Aside Browser's layered agent memory. */
 const MEMORY_ROOT = join(homedir(), ".aside/u/0/agents/main/memory");

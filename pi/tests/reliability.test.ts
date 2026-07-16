@@ -3,9 +3,9 @@ import test from "node:test";
 import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { listMemoryFiles, MAX_OUTPUT_BYTES, MAX_OUTPUT_LINES, readMemoryFile, truncateMemoryOutput } from "./aside-memory-helpers.ts";
-import { NotifyEventCursor, OwnedPaneRegistry } from "./spawn-agent-state.ts";
-import { SessionPoller } from "./usage-lifecycle.ts";
+import { listMemoryFiles, MAX_OUTPUT_BYTES, MAX_OUTPUT_LINES, readMemoryFile, truncateMemoryOutput } from "../lib/aside-memory-helpers.ts";
+import { NotifyEventCursor, OwnedPaneRegistry } from "../lib/spawn-agent-state.ts";
+import { SessionPoller } from "../lib/usage-lifecycle.ts";
 
 function memoryFixture(): string {
   const root = mkdtempSync(join(tmpdir(), "pi-memory-"));

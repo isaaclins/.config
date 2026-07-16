@@ -4,6 +4,6 @@
   "type": "module",
   "version": "0.0.0",
   "scripts": {
-    "test": "node --experimental-strip-types --test extensions/*.test.ts"
+    "test": "node --experimental-strip-types --test tests/*.test.ts"
   }
 }

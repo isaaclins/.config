@@ -2,7 +2,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import { SessionPoller } from "./usage-lifecycle.ts";
+import { SessionPoller } from "../lib/usage-lifecycle.ts";
 
 /**
  * Anthropic subscription usage, migrated from the Claude Code statusline

@@ -5,7 +5,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { randomBytes } from "node:crypto";
-import { NotifyEventCursor, OwnedPaneRegistry } from "./spawn-agent-state.ts";
+import { NotifyEventCursor, OwnedPaneRegistry } from "../lib/spawn-agent-state.ts";
 
 /**
  * Shared-control live pi sessions.
@@ -403,7 +403,11 @@ async function spawnInTmux(
   // PI_SPAWN_NOTIFY_FILE makes the child report agent_end back to us.
   const notifyFile = path.join(NOTIFY_DIR, `${randomBytes(8).toString("hex")}.jsonl`);
   fs.mkdirSync(NOTIFY_DIR, { recursive: true });
-  const paneCommand = `PI_SPAWN_NOTIFY_FILE=${shellQuoteSingle(notifyFile)} ${buildPiLaunch(prompt, model)}`;
+  // Keep a failed child pane visible so startup errors can be inspected instead
+  // of disappearing before the user or parent can read them.
+  const paneCommand =
+    `tmux set-option -p remain-on-exit on; ` +
+    `PI_SPAWN_NOTIFY_FILE=${shellQuoteSingle(notifyFile)} ${buildPiLaunch(prompt, model)}`;
 
   const result = await pi.exec(
     "tmux",
