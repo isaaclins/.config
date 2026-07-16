@@ -65,7 +65,7 @@
     "clearOnShrink": false,
     "showTerminalProgress": true
   },
-  "theme": "dark",
+  "theme": "arcoiris-refined",
   "transport": "auto",
   "warnings": {
     "anthropicExtraUsage": false

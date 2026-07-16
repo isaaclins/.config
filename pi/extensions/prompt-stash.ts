@@ -1,4 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { promptStashWidget } from "./ui-polish.ts";
 
 /**
  * Prompt stash (Claude-Code-style ctrl+s).
@@ -44,7 +45,10 @@ export default function (pi: ExtensionAPI) {
       const current = ctx.ui.getEditorText();
 
       if (!current.trim()) {
-        if (stash === undefined) return;
+        if (stash === undefined) {
+          ctx.ui.notify("Nothing to stash", "info");
+          return;
+        }
         const restored = stash;
         stash = undefined;
         ctx.ui.setEditorText(restored);
@@ -57,19 +61,13 @@ export default function (pi: ExtensionAPI) {
 
       if (previousStash === undefined) {
         ctx.ui.setEditorText("");
-        ctx.ui.setWidget("prompt-stash", [stashLabel(current)]);
+        ctx.ui.setWidget("prompt-stash", promptStashWidget(current));
         return;
       }
 
       ctx.ui.setEditorText(previousStash);
-      ctx.ui.setWidget("prompt-stash", [stashLabel(current)]);
+      ctx.ui.setWidget("prompt-stash", promptStashWidget(current));
       ctx.ui.notify("Stash swapped", "info");
     },
   });
-}
-
-function stashLabel(text: string): string {
-  const oneLine = text.replace(/\s+/g, " ").trim();
-  const preview = oneLine.length > 60 ? `${oneLine.slice(0, 60)}...` : oneLine;
-  return `stash: ${preview}`;
 }

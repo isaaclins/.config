@@ -150,12 +150,14 @@ check_symlink "$HOME/.pi/agent/AGENTS.md" "$HOME/.config/agents/AGENTS.md"
 check_symlink "$HOME/.pi/agent/extensions" "$HOME/.config/pi/extensions"
 check_symlink "$HOME/.pi/agent/lib" "$HOME/.config/pi/lib"
 check_symlink "$HOME/.pi/agent/assets" "$HOME/.config/pi/assets"
+check_symlink "$HOME/.pi/agent/themes" "$HOME/.config/pi/themes"
 echo
 
 # 2. JSON validity
 echo "=== Checking JSON validity ==="
 check_json "$HOME/.config/pi/settings.json"
 check_json "$HOME/.config/pi/models.json"
+check_json "$HOME/.config/pi/themes/arcoiris-refined.json"
 echo
 
 # 3. External editor
