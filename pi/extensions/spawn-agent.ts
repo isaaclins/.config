@@ -1,4 +1,4 @@
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { StringEnum } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
 import * as fs from "node:fs";
@@ -47,8 +47,9 @@ import { randomBytes } from "node:crypto";
  * whenever the child agent loop finishes and the session goes idle). The
  * parent session polls the file (fs.watchFile) and, on each new line,
  * injects a custom message with triggerTurn: true, waking the orchestrator
- * so it can read the pane and verify the result. Note "done" means "went
- * idle after a turn": co-driving the child pane by hand fires one wake-up
+ * so it can read the pane and verify the result. The parent shows a compact
+ * animated cat until every newly spawned pane reports its first idle turn.
+ * Note "done" means "went idle after a turn": co-driving the child pane by hand fires one wake-up
  * per completed turn, not one single task-complete signal. Ghostty mode
  * has no notification (no env control over `open`, and no pane to read).
  */
@@ -57,19 +58,53 @@ const PANE_ID_RE = /^%\d+$/;
 
 const NOTIFY_DIR = path.join(os.tmpdir(), "pi-spawn-agent-notify");
 const NOTIFY_POLL_MS = 1000;
+const CAT_FRAME_MS = 600;
+const WAITING_CAT_WIDGET = "spawn-agent-waiting-cat";
+
+interface ParentWatcher { pane: string; waitingForFirstTurn: boolean; }
 
 /** Active parent-side watchers, keyed by notify file path, for cleanup. */
-const activeWatchers = new Map<string, { pane: string }>();
+const activeWatchers = new Map<string, ParentWatcher>();
 
 export default function (pi: ExtensionAPI) {
   registerChildDoneReporter(pi);
 
+  let catTimer: ReturnType<typeof setInterval> | undefined;
+  let parentContext: ExtensionContext | undefined;
+  let catFrame = 0;
+
+  const renderWaitingCat = () => {
+    const ctx = parentContext;
+    if (!ctx || ctx.mode !== "tui") return;
+    const panes = [...activeWatchers.values()].filter((watcher) => watcher.waitingForFirstTurn).map((watcher) => watcher.pane);
+    if (panes.length === 0) { ctx.ui.setWidget(WAITING_CAT_WIDGET, undefined); return; }
+    const frames = ["ᓚᘏᗢ", "ᓚᘏᗢ", "ᓚᵕᗢ", "ᓚᘏᗢ"];
+    const paneText = panes.length <= 3 ? panes.join(", ") : `${panes.slice(0, 3).join(", ")} +${panes.length - 3}`;
+    const noun = panes.length === 1 ? "agent" : "agents";
+    ctx.ui.setWidget(WAITING_CAT_WIDGET, [ctx.ui.theme.fg("accent", frames[catFrame % frames.length]!) + ctx.ui.theme.fg("muted", ` waiting for ${panes.length} ${noun} (${paneText})`)]);
+  };
+
+  const startWaitingCat = (ctx: ExtensionContext) => {
+    parentContext = ctx;
+    renderWaitingCat();
+    if (catTimer || ctx.mode !== "tui") return;
+    catTimer = setInterval(() => { catFrame++; renderWaitingCat(); }, CAT_FRAME_MS);
+    catTimer.unref();
+  };
+
+  const stopWaitingCatIfIdle = () => {
+    if ([...activeWatchers.values()].some((watcher) => watcher.waitingForFirstTurn)) return;
+    if (catTimer) clearInterval(catTimer);
+    catTimer = undefined;
+    renderWaitingCat();
+  };
+
   pi.on("session_shutdown", async () => {
-    for (const file of activeWatchers.keys()) {
-      fs.unwatchFile(file);
-      fs.rmSync(file, { force: true });
-    }
+    if (catTimer) clearInterval(catTimer);
+    catTimer = undefined;
+    for (const file of activeWatchers.keys()) { fs.unwatchFile(file); fs.rmSync(file, { force: true }); }
     activeWatchers.clear();
+    parentContext = undefined;
   });
 
   pi.registerCommand("spawn", {
@@ -79,7 +114,8 @@ export default function (pi: ExtensionAPI) {
       try {
         const result = await spawnLiveAgent(pi, ctx.cwd, prompt);
         if (result.pane && result.notifyFile) {
-          watchForChildDone(pi, result.notifyFile, result.pane);
+          watchForChildDone(pi, result.notifyFile, result.pane, renderWaitingCat, stopWaitingCatIfIdle);
+          startWaitingCat(ctx);
         }
         ctx.ui.notify(result.message, "info");
       } catch (err) {
@@ -92,7 +128,7 @@ export default function (pi: ExtensionAPI) {
     name: "spawn_agent",
     label: "Spawn Agent",
     description:
-      "Spawn a NEW live, human-visible pi session in a terminal the user can see and type into directly (a tmux split when running inside tmux, otherwise a new Ghostty window). This is not a hidden background subagent: the user is watching and can interact with it too. In tmux, the returned pane id can be passed to agent_pane afterwards to send it more input or read its current screen output, and this session is automatically woken with a notification message each time the spawned agent finishes a turn and goes idle, so there is no need to poll: wait for the wake-up, then read the pane to verify the result. Outside tmux (Ghostty window) there is no steering and no done-notification; the window is fully user-driven. Delegation is strictly one level deep: spawned agents cannot spawn or steer further agents. Never delegate tasks that need interactive privileged input (e.g. sudo passwords); ask the user to run those themselves.",
+      "Spawn a NEW live, human-visible pi session in a terminal the user can see and type into directly (a tmux split when running inside tmux, otherwise a new Ghostty window). In tmux, the parent shows a compact animated cat with pane IDs until every newly spawned pane reports its first idle turn, then wakes automatically on every completed child turn. Outside tmux there is no steering or done-notification. Delegation is strictly one level deep: spawned agents cannot spawn or steer further agents. Never delegate interactive privileged input such as sudo passwords.",
     parameters: Type.Object({
       prompt: Type.Optional(
         Type.String({ description: "Optional initial prompt to launch the new pi session with" }),
@@ -104,10 +140,11 @@ export default function (pi: ExtensionAPI) {
         }),
       ),
     }),
-    async execute(_toolCallId, params) {
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const result = await spawnLiveAgent(pi, process.cwd(), params.prompt, params.model);
       if (result.pane && result.notifyFile) {
-        watchForChildDone(pi, result.notifyFile, result.pane);
+        watchForChildDone(pi, result.notifyFile, result.pane, renderWaitingCat, stopWaitingCatIfIdle);
+        startWaitingCat(ctx);
       }
       return {
         content: [{ type: "text", text: result.message }],
@@ -208,13 +245,19 @@ function registerChildDoneReporter(pi: ExtensionAPI) {
  * Parent side: poll the child's notify file and wake this session with a
  * turn-triggering message whenever the child reports a finished turn.
  */
-function watchForChildDone(pi: ExtensionAPI, notifyFile: string, pane: string) {
+function watchForChildDone(pi: ExtensionAPI, notifyFile: string, pane: string, renderWaitingCat: () => void, stopWaitingCatIfIdle: () => void) {
   let processedSize = 0;
-  activeWatchers.set(notifyFile, { pane });
+  activeWatchers.set(notifyFile, { pane, waitingForFirstTurn: true });
 
   fs.watchFile(notifyFile, { interval: NOTIFY_POLL_MS }, (curr) => {
     if (curr.size <= processedSize) return;
     processedSize = curr.size;
+    const watcher = activeWatchers.get(notifyFile);
+    if (watcher?.waitingForFirstTurn) {
+      watcher.waitingForFirstTurn = false;
+      renderWaitingCat();
+      stopWaitingCatIfIdle();
+    }
     pi.sendMessage(
       {
         customType: "spawn-agent-done",
