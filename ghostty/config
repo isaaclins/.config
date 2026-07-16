@@ -46,8 +46,10 @@ keybind = super+shift+minus=decrease_font_size:1
 
 keybind = ctrl+shift+i=inspector:toggle
 
-# Option + Backspace: delete previous word (Ctrl-W)
-keybind = opt+backspace=text:\x17
+# Option + Backspace: delete previous word. Sends ESC+DEL (alt-backspace,
+# backward-kill-word in fish/readline) instead of Ctrl-W, because tmux now
+# grabs ctrl+w for the WASD-as-arrows bindings (see tmux/tmux.conf).
+keybind = opt+backspace=text:\x1b\x7f
 
 # tmux multipane instead of Ghostty splits: forward the familiar split keys
 # into tmux as prefix sequences (ctrl+b then % or "). Outside tmux these
