@@ -7,7 +7,11 @@ import { truncateToWidth } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { randomUUID } from "node:crypto";
 import { platform } from "node:os";
-import { loadConfig, type CodriveConfig } from "../lib/codrive-config.ts";
+import {
+  isCodriveChildEnvironment,
+  loadConfig,
+  type CodriveConfig,
+} from "../lib/codrive-config.ts";
 import {
   NONCE_ENV,
   SOCKET_ENV,
@@ -34,7 +38,7 @@ import {
 const PANE = /^%\d+$/;
 const WAITING_WIDGET = "pi-codrive-waiting";
 const REPORT_MESSAGE = "pi-codrive-report";
-const CHILD_ENV = Boolean(process.env[SOCKET_ENV] || process.env[NONCE_ENV]);
+const CHILD_ENV = isCodriveChildEnvironment();
 
 export default function piCodrive(pi: ExtensionAPI): void {
   const histories = new Map<string, SpawnReportRecord[]>();
@@ -145,7 +149,15 @@ export default function piCodrive(pi: ExtensionAPI): void {
 
   pi.on("session_start", async (_event, ctx) => {
     parentContext = ctx;
-    if (CHILD_ENV) return;
+    if (CHILD_ENV) {
+      try {
+        config = loadConfig();
+        await setPaneRole("subagent");
+      } catch {
+        // Role decoration must never block a legacy or current child session.
+      }
+      return;
+    }
     if (platform() !== "darwin" && platform() !== "linux") return;
     await ipc?.close();
     ipc = undefined;

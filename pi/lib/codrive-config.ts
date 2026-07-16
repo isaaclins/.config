@@ -4,6 +4,16 @@ import { readFileSync } from "node:fs";
 
 export type ThinkingLevel =
   "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
+
+export function isCodriveChildEnvironment(env = process.env): boolean {
+  return Boolean(
+    env.PI_CODRIVE_SOCKET ||
+      env.PI_CODRIVE_NONCE ||
+      env.PI_SPAWN_NOTIFY_FILE ||
+      env.PI_SPAWN_AGENT_REPORT_FILE,
+  );
+}
+
 export interface CodriveConfig {
   piCommand: string;
   model: string | null;

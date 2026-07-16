@@ -4,7 +4,11 @@ import { mkdtempSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createConnection } from "node:net";
-import { DEFAULT_CONFIG, validateConfig } from "../lib/codrive-config.ts";
+import {
+  DEFAULT_CONFIG,
+  isCodriveChildEnvironment,
+  validateConfig,
+} from "../lib/codrive-config.ts";
 import {
   chooseSocketDirectory,
   decodeFrame,
@@ -51,6 +55,14 @@ test("structured report schema v1 extracts the latest assistant and redacts erro
   assert.match(report.errorSummary!, /redacted/);
   assert.equal(extractAssistantText("plain"), "plain");
 });
+test("current and legacy child environment markers are recognized", () => {
+  assert.equal(isCodriveChildEnvironment({}), false);
+  assert.equal(isCodriveChildEnvironment({ PI_CODRIVE_SOCKET: "/tmp/socket" }), true);
+  assert.equal(isCodriveChildEnvironment({ PI_CODRIVE_NONCE: "nonce" }), true);
+  assert.equal(isCodriveChildEnvironment({ PI_SPAWN_NOTIFY_FILE: "/tmp/notify" }), true);
+  assert.equal(isCodriveChildEnvironment({ PI_SPAWN_AGENT_REPORT_FILE: "/tmp/report" }), true);
+});
+
 test("configuration validates and null model/thinking inherit by omitting flags", () => {
   assert.deepEqual(buildPiArguments("work", null, null), ["work"]);
   assert.deepEqual(buildPiArguments(undefined, "provider/model", "low"), [
