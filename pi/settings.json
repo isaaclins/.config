@@ -1,9 +1,9 @@
 {
   "collapseChangelog": true,
-  "defaultModel": "claude-opus-4-8",
+  "defaultModel": "claude-fable-5",
   "defaultProjectTrust": "always",
   "defaultProvider": "anthropic",
-  "defaultThinkingLevel": "high",
+  "defaultThinkingLevel": "medium",
   "doubleEscapeAction": "tree",
   "enabledModels": [
     "claude-opus-4-8",
