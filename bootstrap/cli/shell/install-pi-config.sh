@@ -3,6 +3,7 @@
 # Purpose: Wire the Pi coding agent (~/.pi/agent) to the dotfile-tracked config
 #   at ~/.config/pi. Only deliberate config is tracked and symlinked:
 #     ~/.pi/agent/settings.json  -> ~/.config/pi/settings.json
+#     ~/.pi/agent/models.json    -> ~/.config/pi/models.json
 #     ~/.pi/agent/AGENTS.md      -> ~/.config/agents/AGENTS.md (ONE unified
 #                                   rules file for Claude, Codex, and Pi)
 #     ~/.pi/agent/extensions     -> ~/.config/pi/extensions (whole-dir link)
@@ -49,6 +50,7 @@ link() {
 }
 
 link "$PI_HOME/settings.json" "$CANON/settings.json"
+link "$PI_HOME/models.json" "$CANON/models.json"
 link "$PI_HOME/AGENTS.md" "$HOME/.config/agents/AGENTS.md"
 link "$PI_HOME/extensions" "$CANON/extensions"
 link "$PI_HOME/assets" "$CANON/assets"

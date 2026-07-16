@@ -145,6 +145,7 @@ echo
 # 1. Symlinks
 echo "=== Checking symlinks ==="
 check_symlink "$HOME/.pi/agent/settings.json" "$HOME/.config/pi/settings.json"
+check_symlink "$HOME/.pi/agent/models.json" "$HOME/.config/pi/models.json"
 check_symlink "$HOME/.pi/agent/AGENTS.md" "$HOME/.config/agents/AGENTS.md"
 check_symlink "$HOME/.pi/agent/extensions" "$HOME/.config/pi/extensions"
 check_symlink "$HOME/.pi/agent/assets" "$HOME/.config/pi/assets"
@@ -153,6 +154,7 @@ echo
 # 2. JSON validity
 echo "=== Checking JSON validity ==="
 check_json "$HOME/.config/pi/settings.json"
+check_json "$HOME/.config/pi/models.json"
 echo
 
 # 3. External editor
