@@ -247,28 +247,45 @@ function registerChildDoneReporter(pi: ExtensionAPI) {
  */
 function watchForChildDone(pi: ExtensionAPI, notifyFile: string, pane: string, renderWaitingCat: () => void, stopWaitingCatIfIdle: () => void) {
   let processedSize = 0;
+  let checkingPane = false;
   activeWatchers.set(notifyFile, { pane, waitingForFirstTurn: true });
 
-  fs.watchFile(notifyFile, { interval: NOTIFY_POLL_MS }, (curr) => {
-    if (curr.size <= processedSize) return;
-    processedSize = curr.size;
-    const watcher = activeWatchers.get(notifyFile);
-    if (watcher?.waitingForFirstTurn) {
-      watcher.waitingForFirstTurn = false;
-      renderWaitingCat();
-      stopWaitingCatIfIdle();
+  fs.watchFile(notifyFile, { interval: NOTIFY_POLL_MS }, async (curr) => {
+    if (curr.size <= processedSize || checkingPane) return;
+    checkingPane = true;
+    try {
+      const paneStatus = await pi.exec("tmux", ["display-message", "-p", "-t", pane, "#{pane_id}"], {
+        timeout: 5_000,
+      });
+      if (paneStatus.code !== 0 || paneStatus.stdout.trim() !== pane) {
+        fs.unwatchFile(notifyFile);
+        fs.rmSync(notifyFile, { force: true });
+        activeWatchers.delete(notifyFile);
+        stopWaitingCatIfIdle();
+        return;
+      }
+
+      processedSize = curr.size;
+      const watcher = activeWatchers.get(notifyFile);
+      if (watcher?.waitingForFirstTurn) {
+        watcher.waitingForFirstTurn = false;
+        renderWaitingCat();
+        stopWaitingCatIfIdle();
+      }
+      pi.sendMessage(
+        {
+          customType: "spawn-agent-done",
+          content:
+            `The spawned agent in tmux pane ${pane} finished a turn and went idle. ` +
+            `Use agent_pane { action: "read", pane: "${pane}" } to review its output and verify the result.`,
+          display: true,
+          details: { pane, notifyFile },
+        },
+        { triggerTurn: true, deliverAs: "followUp" },
+      );
+    } finally {
+      checkingPane = false;
     }
-    pi.sendMessage(
-      {
-        customType: "spawn-agent-done",
-        content:
-          `The spawned agent in tmux pane ${pane} finished a turn and went idle. ` +
-          `Use agent_pane { action: "read", pane: "${pane}" } to review its output and verify the result.`,
-        display: true,
-        details: { pane, notifyFile },
-      },
-      { triggerTurn: true, deliverAs: "followUp" },
-    );
   });
 }
 
