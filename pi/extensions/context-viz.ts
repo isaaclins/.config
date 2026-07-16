@@ -3,6 +3,7 @@ import { truncateToWidth } from "@earendil-works/pi-tui";
 import {
   buildBreakdown,
   buildGridCells,
+  buildSummaryText,
   CELL_FREE,
   CELL_FULL,
   CELL_PARTIAL,
@@ -11,30 +12,105 @@ import {
   formatTokens,
   GRID_COLUMNS,
   GRID_ROWS,
+  type ContextBreakdown,
 } from "../lib/context-viz.ts";
 
 /**
- * /context: Claude-Code-style context usage visualization.
+ * /context: Claude-Code-style context usage printed into the pi output.
  *
- * Renders an overlay with a block grid of the context window plus an
- * estimated per-category breakdown. Overlay only: nothing is written to the
- * session, so inspecting context never costs context.
+ * The usage report is a session message, not an overlay, on purpose: the
+ * model sees its own context stats, so an agent can notice bloat, write an
+ * inline handover with the task state, and continue after clearing. The
+ * LLM-visible content is a compact summary line; the rendered view shows the
+ * full grid.
  */
 
-export default function contextViz(pi: ExtensionAPI) {
-  pi.registerCommand("context", {
-    description: "Visualize context usage by category",
-    handler: async (_args, ctx) => {
-      if (ctx.mode !== "tui") {
-        ctx.ui.notify("/context requires the interactive TUI", "warning");
-        return;
-      }
+const MESSAGE_TYPE = "context-viz";
 
+interface ContextVizDetails {
+  breakdown: ContextBreakdown;
+  modelLine: string;
+  providerLine: string;
+  skillCount: number;
+  contextFileCount: number;
+  activeToolCount: number;
+}
+
+export default function contextViz(pi: ExtensionAPI) {
+  pi.registerMessageRenderer(MESSAGE_TYPE, (message, _options, theme) => {
+    const details = message.details as ContextVizDetails | undefined;
+    if (!details) return undefined;
+    const { breakdown } = details;
+    const contextWindow = breakdown.contextWindow;
+
+    const paintCell = (cell: string): string => {
+      if (cell === CELL_FULL) return theme.fg("accent", cell);
+      if (cell === CELL_PARTIAL) return theme.fg("warning", cell);
+      return theme.fg("dim", cell);
+    };
+    const cells = buildGridCells(breakdown.usedTokens, contextWindow);
+    const gridRows: string[] = [];
+    for (let row = 0; row < GRID_ROWS; row++) {
+      const slice = cells.slice(row * GRID_COLUMNS, (row + 1) * GRID_COLUMNS);
+      gridRows.push(slice.map(paintCell).join(" "));
+    }
+
+    const headline = `${formatTokens(breakdown.usedTokens)}/${formatTokens(contextWindow)} tokens (${Math.round(
+      contextWindow > 0 ? (breakdown.usedTokens / contextWindow) * 100 : 0,
+    )}%)`;
+    const legend: string[] = [
+      theme.fg("text", details.modelLine),
+      theme.fg("muted", details.providerLine),
+      theme.fg("text", headline),
+      "",
+      theme.fg("muted", "Estimated usage by category"),
+      ...breakdown.categories.map(
+        (category) =>
+          theme.fg("accent", CELL_FULL) +
+          theme.fg(
+            "text",
+            ` ${category.label}: ${formatTokens(category.tokens)} tokens (${formatPercent(category.tokens, contextWindow)})`,
+          ),
+      ),
+      theme.fg("dim", CELL_FREE) +
+        theme.fg(
+          "muted",
+          ` Free space: ${formatTokens(breakdown.freeTokens)} (${formatPercent(breakdown.freeTokens, contextWindow)})`,
+        ),
+    ];
+
+    const gridWidth = GRID_COLUMNS * 2 - 1;
+    const lines: string[] = [theme.fg("accent", theme.bold("Context Usage")), ""];
+    const rowCount = Math.max(gridRows.length, legend.length);
+    for (let index = 0; index < rowCount; index++) {
+      const grid = gridRows[index] ?? " ".repeat(gridWidth);
+      const info = legend[index] ?? "";
+      lines.push(`${grid}   ${info}`);
+    }
+    lines.push("");
+    lines.push(
+      theme.fg(
+        "muted",
+        `Skills: ${details.skillCount} loaded · Context files: ${details.contextFileCount} · Active tools: ${details.activeToolCount}`,
+      ),
+    );
+
+    return {
+      render: (width: number) =>
+        lines.map((line) => truncateToWidth(line, width, "…")),
+      invalidate() {},
+    };
+  });
+
+  pi.registerCommand("context", {
+    description: "Print context usage by category into the output",
+    handler: async (_args, ctx) => {
       const usage = ctx.getContextUsage();
       const contextWindow = usage?.contextWindow ?? 0;
       const options = ctx.getSystemPromptOptions();
 
-      const contextFileTokens = (options.contextFiles ?? []).reduce(
+      const contextFiles = options.contextFiles ?? [];
+      const contextFileTokens = contextFiles.reduce(
         (sum: number, file: { content?: string }) =>
           sum + estimateTokens(file.content ?? ""),
         0,
@@ -59,9 +135,6 @@ export default function contextViz(pi: ExtensionAPI) {
         0,
       );
 
-      const estimatedMessageTokens = estimateTokens(
-        JSON.stringify(ctx.sessionManager.getBranch()),
-      );
       const breakdown = buildBreakdown({
         contextWindow,
         reportedTokens: usage?.tokens ?? null,
@@ -69,84 +142,29 @@ export default function contextViz(pi: ExtensionAPI) {
         contextFileTokens,
         skillTokens,
         toolTokens,
-        estimatedMessageTokens,
+        estimatedMessageTokens: estimateTokens(
+          JSON.stringify(ctx.sessionManager.getBranch()),
+        ),
       });
 
       const model = ctx.model;
-      const modelLine = model
-        ? `${model.name ?? model.id} (${formatTokens(contextWindow)} context)`
-        : "no model selected";
-      const headline = `${formatTokens(breakdown.usedTokens)}/${formatTokens(contextWindow)} tokens (${Math.round(
-        contextWindow > 0 ? (breakdown.usedTokens / contextWindow) * 100 : 0,
-      )}%)`;
+      const details: ContextVizDetails = {
+        breakdown,
+        modelLine: model
+          ? `${model.name ?? model.id} (${formatTokens(contextWindow)} context)`
+          : "no model selected",
+        providerLine: model ? `${model.provider}/${model.id}` : "",
+        skillCount: skills.length,
+        contextFileCount: contextFiles.length,
+        activeToolCount: activeTools.length,
+      };
 
-      await ctx.ui.custom<void>(
-        (tui, theme, _keybindings, done) => {
-          const paintCell = (cell: string): string => {
-            if (cell === CELL_FULL) return theme.fg("accent", cell);
-            if (cell === CELL_PARTIAL) return theme.fg("warning", cell);
-            return theme.fg("dim", cell);
-          };
-          const cells = buildGridCells(breakdown.usedTokens, contextWindow);
-          const gridRows: string[] = [];
-          for (let row = 0; row < GRID_ROWS; row++) {
-            const slice = cells.slice(row * GRID_COLUMNS, (row + 1) * GRID_COLUMNS);
-            gridRows.push(slice.map(paintCell).join(" "));
-          }
-
-          const legend: string[] = [
-            theme.fg("text", modelLine),
-            theme.fg("muted", model ? `${model.provider}/${model.id}` : ""),
-            theme.fg("text", headline),
-            "",
-            theme.fg("muted", "Estimated usage by category"),
-            ...breakdown.categories.map(
-              (category) =>
-                theme.fg("accent", CELL_FULL) +
-                theme.fg(
-                  "text",
-                  ` ${category.label}: ${formatTokens(category.tokens)} tokens (${formatPercent(category.tokens, contextWindow)})`,
-                ),
-            ),
-            theme.fg("dim", CELL_FREE) +
-              theme.fg(
-                "muted",
-                ` Free space: ${formatTokens(breakdown.freeTokens)} (${formatPercent(breakdown.freeTokens, contextWindow)})`,
-              ),
-          ];
-
-          const gridWidth = GRID_COLUMNS * 2 - 1;
-          const lines: string[] = [
-            theme.fg("accent", theme.bold(" Context Usage")),
-            "",
-          ];
-          const rowCount = Math.max(gridRows.length, legend.length);
-          for (let index = 0; index < rowCount; index++) {
-            const grid = gridRows[index] ?? " ".repeat(gridWidth);
-            const info = legend[index] ?? "";
-            lines.push(` ${grid}   ${info}`);
-          }
-          lines.push("");
-          lines.push(
-            theme.fg(
-              "muted",
-              ` Skills: ${skills.length} loaded · Context files: ${(options.contextFiles ?? []).length} · Active tools: ${activeTools.length}`,
-            ),
-          );
-          lines.push(theme.fg("dim", " press any key to close"));
-
-          return {
-            render: (width: number) =>
-              lines.map((line) => truncateToWidth(line, width, "…")),
-            invalidate() {},
-            handleInput() {
-              done();
-              tui.requestRender();
-            },
-          };
-        },
-        { overlay: true, overlayOptions: { anchor: "center", minWidth: 100 } },
-      );
+      pi.sendMessage({
+        customType: MESSAGE_TYPE,
+        content: buildSummaryText(breakdown),
+        display: true,
+        details,
+      });
     },
   });
 }

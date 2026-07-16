@@ -82,6 +82,21 @@ export interface BreakdownInput {
  * out of the system prompt they are embedded in, and messages absorb the
  * remainder of the reported total when Pi knows real usage.
  */
+/** Compact LLM-visible summary so printing usage stays cheap in context. */
+export function buildSummaryText(breakdown: ContextBreakdown): string {
+  const parts = breakdown.categories
+    .map(
+      (category) =>
+        `${category.label} ${formatTokens(category.tokens)} (${formatPercent(category.tokens, breakdown.contextWindow)})`,
+    )
+    .join(", ");
+  return (
+    `Context usage: ${formatTokens(breakdown.usedTokens)}/${formatTokens(breakdown.contextWindow)} tokens ` +
+    `(${formatPercent(breakdown.usedTokens, breakdown.contextWindow)}). ${parts}. ` +
+    `Free ${formatTokens(breakdown.freeTokens)} (${formatPercent(breakdown.freeTokens, breakdown.contextWindow)}).`
+  );
+}
+
 export function buildBreakdown(input: BreakdownInput): ContextBreakdown {
   const carvedOut = input.contextFileTokens + input.skillTokens;
   const basePrompt = Math.max(0, input.systemPromptTokens - carvedOut);

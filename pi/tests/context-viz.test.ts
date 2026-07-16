@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   buildBreakdown,
   buildGridCells,
+  buildSummaryText,
   CELL_FREE,
   CELL_FULL,
   CELL_PARTIAL,
@@ -83,4 +84,29 @@ test("breakdown clamps negative remainders and falls back to estimated messages 
   });
   assert.equal(fallback.usedTokens, 9000);
   assert.equal(fallback.freeTokens, 41_000);
+});
+
+test("summary text stays compact and covers every category plus free space", () => {
+  const breakdown = buildBreakdown({
+    contextWindow: 1_000_000,
+    reportedTokens: 32_500,
+    systemPromptTokens: 10_000,
+    contextFileTokens: 4000,
+    skillTokens: 2000,
+    toolTokens: 13_000,
+    estimatedMessageTokens: 0,
+  });
+  const summary = buildSummaryText(breakdown);
+  assert.match(summary, /^Context usage: 32\.5k\/1m tokens \(3\.3%\)\./);
+  for (const label of [
+    "System prompt",
+    "System tools",
+    "Context files",
+    "Skills",
+    "Messages",
+    "Free",
+  ]) {
+    assert.ok(summary.includes(label), label);
+  }
+  assert.ok(summary.length < 400);
 });
