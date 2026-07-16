@@ -92,7 +92,7 @@ export default function (pi: ExtensionAPI) {
     name: "spawn_agent",
     label: "Spawn Agent",
     description:
-      "Spawn a NEW live, human-visible pi session in a terminal the user can see and type into directly (a tmux split when running inside tmux, otherwise a new Ghostty window). This is not a hidden background subagent: the user is watching and can interact with it too. In tmux, the returned pane id can be passed to agent_pane afterwards to send it more input or read its current screen output, and this session is automatically woken with a notification message each time the spawned agent finishes a turn and goes idle, so there is no need to poll: wait for the wake-up, then read the pane to verify the result. Outside tmux (Ghostty window) there is no steering and no done-notification; the window is fully user-driven.",
+      "Spawn a NEW live, human-visible pi session in a terminal the user can see and type into directly (a tmux split when running inside tmux, otherwise a new Ghostty window). This is not a hidden background subagent: the user is watching and can interact with it too. In tmux, the returned pane id can be passed to agent_pane afterwards to send it more input or read its current screen output, and this session is automatically woken with a notification message each time the spawned agent finishes a turn and goes idle, so there is no need to poll: wait for the wake-up, then read the pane to verify the result. Outside tmux (Ghostty window) there is no steering and no done-notification; the window is fully user-driven. Delegation is strictly one level deep: spawned agents cannot spawn or steer further agents. Never delegate tasks that need interactive privileged input (e.g. sudo passwords); ask the user to run those themselves.",
     parameters: Type.Object({
       prompt: Type.Optional(
         Type.String({ description: "Optional initial prompt to launch the new pi session with" }),
@@ -127,6 +127,12 @@ export default function (pi: ExtensionAPI) {
       text: Type.Optional(Type.String({ description: "Text to send. Required for action 'send'." })),
     }),
     async execute(_toolCallId, params) {
+      if (isSpawnedChild()) {
+        throw new Error(
+          "This session is itself a spawned agent and must not steer other panes. Do your own task; " +
+            "if blocked, stop and ask the user directly.",
+        );
+      }
       if (!process.env.TMUX) {
         throw new Error(
           "agent_pane only works inside tmux. This session is not running in tmux, so there is no pane to steer.",
@@ -223,12 +229,24 @@ function watchForChildDone(pi: ExtensionAPI, notifyFile: string, pane: string) {
   });
 }
 
+/** True when this session was itself spawned by spawn_agent (child marker). */
+function isSpawnedChild(): boolean {
+  return Boolean(process.env.PI_SPAWN_NOTIFY_FILE);
+}
+
 async function spawnLiveAgent(
   pi: ExtensionAPI,
   cwd: string,
   prompt: string | undefined,
   model?: string,
 ): Promise<SpawnResult> {
+  if (isSpawnedChild()) {
+    throw new Error(
+      "This session is itself a spawned agent. Spawned agents must not spawn or steer further agents " +
+        "(delegation is one level deep by design). Do the work yourself; if you are blocked on something " +
+        "you cannot do (e.g. an interactive sudo password prompt), stop and ask the user directly instead.",
+    );
+  }
   if (process.env.TMUX) {
     return spawnInTmux(pi, cwd, prompt, model);
   }
