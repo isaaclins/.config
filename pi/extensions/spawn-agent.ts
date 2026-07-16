@@ -1,6 +1,10 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { StringEnum } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import { randomBytes } from "node:crypto";
 
 /**
  * Shared-control live pi sessions.
@@ -35,17 +39,48 @@ import { Type } from "typebox";
  * - spawn_agent { prompt? }: same behavior, callable by the LLM.
  * - agent_pane { action: "send" | "read", pane, text? }: steer or inspect a
  *   previously spawned tmux pane. tmux-only; throws a clear error otherwise.
+ *
+ * Done-notification (tmux only):
+ * The spawned child runs with PI_SPAWN_NOTIFY_FILE set to a unique temp
+ * file. This same extension, when loaded in the child session, sees that
+ * env var and appends a JSON line to the file on every agent_end (i.e.
+ * whenever the child agent loop finishes and the session goes idle). The
+ * parent session polls the file (fs.watchFile) and, on each new line,
+ * injects a custom message with triggerTurn: true, waking the orchestrator
+ * so it can read the pane and verify the result. Note "done" means "went
+ * idle after a turn": co-driving the child pane by hand fires one wake-up
+ * per completed turn, not one single task-complete signal. Ghostty mode
+ * has no notification (no env control over `open`, and no pane to read).
  */
 
 const PANE_ID_RE = /^%\d+$/;
 
+const NOTIFY_DIR = path.join(os.tmpdir(), "pi-spawn-agent-notify");
+const NOTIFY_POLL_MS = 1000;
+
+/** Active parent-side watchers, keyed by notify file path, for cleanup. */
+const activeWatchers = new Map<string, { pane: string }>();
+
 export default function (pi: ExtensionAPI) {
+  registerChildDoneReporter(pi);
+
+  pi.on("session_shutdown", async () => {
+    for (const file of activeWatchers.keys()) {
+      fs.unwatchFile(file);
+      fs.rmSync(file, { force: true });
+    }
+    activeWatchers.clear();
+  });
+
   pi.registerCommand("spawn", {
     description: "Spawn a live, human-visible pi session (tmux split or new Ghostty window)",
     handler: async (args, ctx) => {
       const prompt = args?.trim() || undefined;
       try {
         const result = await spawnLiveAgent(pi, ctx.cwd, prompt);
+        if (result.pane && result.notifyFile) {
+          watchForChildDone(pi, result.notifyFile, result.pane);
+        }
         ctx.ui.notify(result.message, "info");
       } catch (err) {
         ctx.ui.notify(`Failed to spawn agent: ${(err as Error).message}`, "error");
@@ -57,7 +92,7 @@ export default function (pi: ExtensionAPI) {
     name: "spawn_agent",
     label: "Spawn Agent",
     description:
-      "Spawn a NEW live, human-visible pi session in a terminal the user can see and type into directly (a tmux split when running inside tmux, otherwise a new Ghostty window). This is not a hidden background subagent: the user is watching and can interact with it too. In tmux, the returned pane id can be passed to agent_pane afterwards to send it more input or read its current screen output, so the orchestrating agent can steer or check on it later. Outside tmux there is no way to steer it afterwards; the window is fully user-driven.",
+      "Spawn a NEW live, human-visible pi session in a terminal the user can see and type into directly (a tmux split when running inside tmux, otherwise a new Ghostty window). This is not a hidden background subagent: the user is watching and can interact with it too. In tmux, the returned pane id can be passed to agent_pane afterwards to send it more input or read its current screen output, and this session is automatically woken with a notification message each time the spawned agent finishes a turn and goes idle, so there is no need to poll: wait for the wake-up, then read the pane to verify the result. Outside tmux (Ghostty window) there is no steering and no done-notification; the window is fully user-driven.",
     parameters: Type.Object({
       prompt: Type.Optional(
         Type.String({ description: "Optional initial prompt to launch the new pi session with" }),
@@ -71,6 +106,9 @@ export default function (pi: ExtensionAPI) {
     }),
     async execute(_toolCallId, params) {
       const result = await spawnLiveAgent(pi, process.cwd(), params.prompt, params.model);
+      if (result.pane && result.notifyFile) {
+        watchForChildDone(pi, result.notifyFile, result.pane);
+      }
       return {
         content: [{ type: "text", text: result.message }],
         details: { pane: result.pane ?? null, mode: result.mode },
@@ -139,6 +177,50 @@ interface SpawnResult {
   message: string;
   pane?: string;
   mode: "tmux" | "ghostty";
+  notifyFile?: string;
+}
+
+/**
+ * Child side: if this session was spawned with PI_SPAWN_NOTIFY_FILE, report
+ * every agent_end (session went idle) by appending a JSON line to that file.
+ */
+function registerChildDoneReporter(pi: ExtensionAPI) {
+  const notifyFile = process.env.PI_SPAWN_NOTIFY_FILE;
+  if (!notifyFile) return;
+
+  pi.on("agent_end", async () => {
+    try {
+      fs.mkdirSync(path.dirname(notifyFile), { recursive: true });
+      fs.appendFileSync(notifyFile, JSON.stringify({ event: "agent_end", ts: Date.now() }) + "\n");
+    } catch {
+      // Never let notification plumbing break the child session.
+    }
+  });
+}
+
+/**
+ * Parent side: poll the child's notify file and wake this session with a
+ * turn-triggering message whenever the child reports a finished turn.
+ */
+function watchForChildDone(pi: ExtensionAPI, notifyFile: string, pane: string) {
+  let processedSize = 0;
+  activeWatchers.set(notifyFile, { pane });
+
+  fs.watchFile(notifyFile, { interval: NOTIFY_POLL_MS }, (curr) => {
+    if (curr.size <= processedSize) return;
+    processedSize = curr.size;
+    pi.sendMessage(
+      {
+        customType: "spawn-agent-done",
+        content:
+          `The spawned agent in tmux pane ${pane} finished a turn and went idle. ` +
+          `Use agent_pane { action: "read", pane: "${pane}" } to review its output and verify the result.`,
+        display: true,
+        details: { pane, notifyFile },
+      },
+      { triggerTurn: true, deliverAs: "followUp" },
+    );
+  });
 }
 
 async function spawnLiveAgent(
@@ -180,7 +262,10 @@ async function spawnInTmux(
   // with the prompt as its argv (rather than launching `pi` then sending
   // the prompt via a follow-up send-keys) avoids a race against pi's own
   // startup time, which is unreliable to pad with a fixed delay.
-  const paneCommand = buildPiLaunch(prompt, model);
+  // PI_SPAWN_NOTIFY_FILE makes the child report agent_end back to us.
+  const notifyFile = path.join(NOTIFY_DIR, `${randomBytes(8).toString("hex")}.jsonl`);
+  fs.mkdirSync(NOTIFY_DIR, { recursive: true });
+  const paneCommand = `PI_SPAWN_NOTIFY_FILE=${shellQuoteSingle(notifyFile)} ${buildPiLaunch(prompt, model)}`;
 
   const result = await pi.exec(
     "tmux",
@@ -198,9 +283,12 @@ async function spawnInTmux(
   }
 
   return {
-    message: `Spawned live pi session in tmux pane ${pane}. Steer it with agent_pane { pane: "${pane}" }.`,
+    message:
+      `Spawned live pi session in tmux pane ${pane}. Steer it with agent_pane { pane: "${pane}" }. ` +
+      `This session will be woken automatically when the spawned agent finishes a turn and goes idle; no need to poll.`,
     pane,
     mode: "tmux",
+    notifyFile,
   };
 }
 
