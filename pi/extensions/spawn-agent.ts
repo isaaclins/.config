@@ -5,6 +5,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { randomBytes } from "node:crypto";
+import { NotifyEventCursor, OwnedPaneRegistry } from "./spawn-agent-state.ts";
 
 /**
  * Shared-control live pi sessions.
@@ -58,10 +59,15 @@ const PANE_ID_RE = /^%\d+$/;
 
 const NOTIFY_DIR = path.join(os.tmpdir(), "pi-spawn-agent-notify");
 const NOTIFY_POLL_MS = 1000;
+const PANE_HEALTHCHECK_MS = 5000;
 const CAT_FRAME_MS = 600;
 const WAITING_CAT_WIDGET = "spawn-agent-waiting-cat";
 
-interface ParentWatcher { pane: string; waitingForFirstTurn: boolean; }
+interface ParentWatcher {
+  pane: string;
+  waitingForFirstTurn: boolean;
+  healthcheckTimer?: ReturnType<typeof setInterval>;
+}
 
 /** Active parent-side watchers, keyed by notify file path, for cleanup. */
 const activeWatchers = new Map<string, ParentWatcher>();
@@ -72,6 +78,7 @@ export default function (pi: ExtensionAPI) {
   let catTimer: ReturnType<typeof setInterval> | undefined;
   let parentContext: ExtensionContext | undefined;
   let catFrame = 0;
+  const ownedPanes = new OwnedPaneRegistry();
 
   const renderWaitingCat = () => {
     const ctx = parentContext;
@@ -99,11 +106,28 @@ export default function (pi: ExtensionAPI) {
     renderWaitingCat();
   };
 
+  const removeOwnedPane = (pane: string) => {
+    for (const [notifyFile, watcher] of activeWatchers) {
+      if (watcher.pane !== pane) continue;
+      if (watcher.healthcheckTimer) clearInterval(watcher.healthcheckTimer);
+      fs.unwatchFile(notifyFile);
+      fs.rmSync(notifyFile, { force: true });
+      activeWatchers.delete(notifyFile);
+    }
+    ownedPanes.delete(pane);
+    stopWaitingCatIfIdle();
+  };
+
   pi.on("session_shutdown", async () => {
     if (catTimer) clearInterval(catTimer);
     catTimer = undefined;
-    for (const file of activeWatchers.keys()) { fs.unwatchFile(file); fs.rmSync(file, { force: true }); }
+    for (const [file, watcher] of activeWatchers) {
+      if (watcher.healthcheckTimer) clearInterval(watcher.healthcheckTimer);
+      fs.unwatchFile(file);
+      fs.rmSync(file, { force: true });
+    }
     activeWatchers.clear();
+    ownedPanes.clear();
     parentContext = undefined;
   });
 
@@ -114,7 +138,8 @@ export default function (pi: ExtensionAPI) {
       try {
         const result = await spawnLiveAgent(pi, ctx.cwd, prompt);
         if (result.pane && result.notifyFile) {
-          watchForChildDone(pi, result.notifyFile, result.pane, renderWaitingCat, stopWaitingCatIfIdle);
+          ownedPanes.add(result.pane);
+          watchForChildDone(pi, result.notifyFile, result.pane, ownedPanes, renderWaitingCat, stopWaitingCatIfIdle);
           startWaitingCat(ctx);
         }
         ctx.ui.notify(result.message, "info");
@@ -143,7 +168,8 @@ export default function (pi: ExtensionAPI) {
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const result = await spawnLiveAgent(pi, process.cwd(), params.prompt, params.model);
       if (result.pane && result.notifyFile) {
-        watchForChildDone(pi, result.notifyFile, result.pane, renderWaitingCat, stopWaitingCatIfIdle);
+        ownedPanes.add(result.pane);
+        watchForChildDone(pi, result.notifyFile, result.pane, ownedPanes, renderWaitingCat, stopWaitingCatIfIdle);
         startWaitingCat(ctx);
       }
       return {
@@ -178,12 +204,16 @@ export default function (pi: ExtensionAPI) {
       if (!PANE_ID_RE.test(params.pane)) {
         throw new Error(`Invalid tmux pane id "${params.pane}". Expected a format like "%3".`);
       }
+      if (!ownedPanes.has(params.pane)) {
+        throw new Error("agent_pane can only control panes spawned by this parent session. Arbitrary tmux panes cannot be controlled.");
+      }
 
       if (params.action === "read") {
         const result = await pi.exec("tmux", ["capture-pane", "-t", params.pane, "-p", "-S", "-100"], {
           timeout: 10_000,
         });
         if (result.code !== 0) {
+          removeOwnedPane(params.pane);
           throw new Error(`tmux capture-pane failed: ${result.stderr || result.stdout}`);
         }
         return {
@@ -200,12 +230,14 @@ export default function (pi: ExtensionAPI) {
         timeout: 10_000,
       });
       if (sendText.code !== 0) {
+        removeOwnedPane(params.pane);
         throw new Error(`tmux send-keys failed: ${sendText.stderr || sendText.stdout}`);
       }
       const sendEnter = await pi.exec("tmux", ["send-keys", "-t", params.pane, "Enter"], {
         timeout: 10_000,
       });
       if (sendEnter.code !== 0) {
+        removeOwnedPane(params.pane);
         throw new Error(`tmux send-keys (Enter) failed: ${sendEnter.stderr || sendEnter.stdout}`);
       }
       return {
@@ -245,48 +277,76 @@ function registerChildDoneReporter(pi: ExtensionAPI) {
  * Parent side: poll the child's notify file and wake this session with a
  * turn-triggering message whenever the child reports a finished turn.
  */
-function watchForChildDone(pi: ExtensionAPI, notifyFile: string, pane: string, renderWaitingCat: () => void, stopWaitingCatIfIdle: () => void) {
-  let processedSize = 0;
-  let checkingPane = false;
+function watchForChildDone(
+  pi: ExtensionAPI,
+  notifyFile: string,
+  pane: string,
+  ownedPanes: OwnedPaneRegistry,
+  renderWaitingCat: () => void,
+  stopWaitingCatIfIdle: () => void,
+) {
+  const cursor = new NotifyEventCursor();
+  let processing = Promise.resolve();
   activeWatchers.set(notifyFile, { pane, waitingForFirstTurn: true });
 
-  fs.watchFile(notifyFile, { interval: NOTIFY_POLL_MS }, async (curr) => {
-    if (curr.size <= processedSize || checkingPane) return;
-    checkingPane = true;
-    try {
-      const paneStatus = await pi.exec("tmux", ["display-message", "-p", "-t", pane, "#{pane_id}"], {
-        timeout: 5_000,
-      });
-      if (paneStatus.code !== 0 || paneStatus.stdout.trim() !== pane) {
-        fs.unwatchFile(notifyFile);
-        fs.rmSync(notifyFile, { force: true });
-        activeWatchers.delete(notifyFile);
-        stopWaitingCatIfIdle();
+  const removeWatcher = () => {
+    const watcher = activeWatchers.get(notifyFile);
+    if (watcher?.healthcheckTimer) clearInterval(watcher.healthcheckTimer);
+    fs.unwatchFile(notifyFile);
+    fs.rmSync(notifyFile, { force: true });
+    activeWatchers.delete(notifyFile);
+    ownedPanes.delete(pane);
+    stopWaitingCatIfIdle();
+  };
+
+  const processEvents = () => {
+    processing = processing.then(async () => {
+      let content: string;
+      try {
+        content = fs.readFileSync(notifyFile, "utf8");
+      } catch {
         return;
       }
-
-      processedSize = curr.size;
-      const watcher = activeWatchers.get(notifyFile);
-      if (watcher?.waitingForFirstTurn) {
-        watcher.waitingForFirstTurn = false;
-        renderWaitingCat();
-        stopWaitingCatIfIdle();
+      const events = cursor.ingest(content);
+      if (events.length === 0) return;
+      const paneStatus = await pi.exec("tmux", ["display-message", "-p", "-t", pane, "#{pane_id}"], { timeout: 5_000 });
+      if (paneStatus.code !== 0 || paneStatus.stdout.trim() !== pane) {
+        removeWatcher();
+        return;
       }
-      pi.sendMessage(
-        {
+      for (const event of events) {
+        try {
+          if (JSON.parse(event).event !== "agent_end") continue;
+        } catch {
+          continue;
+        }
+        const watcher = activeWatchers.get(notifyFile);
+        if (watcher?.waitingForFirstTurn) {
+          watcher.waitingForFirstTurn = false;
+          renderWaitingCat();
+          stopWaitingCatIfIdle();
+        }
+        pi.sendMessage({
           customType: "spawn-agent-done",
-          content:
-            `The spawned agent in tmux pane ${pane} finished a turn and went idle. ` +
-            `Use agent_pane { action: "read", pane: "${pane}" } to review its output and verify the result.`,
+          content: `The spawned agent in tmux pane ${pane} finished a turn and went idle. Use agent_pane { action: "read", pane: "${pane}" } to review its output and verify the result.`,
           display: true,
           details: { pane, notifyFile },
-        },
-        { triggerTurn: true, deliverAs: "followUp" },
-      );
-    } finally {
-      checkingPane = false;
-    }
-  });
+        }, { triggerTurn: true, deliverAs: "followUp" });
+      }
+    }).catch(() => { /* notification plumbing must never break Pi */ });
+  };
+
+  const healthcheckTimer = setInterval(() => {
+    processing = processing.then(async () => {
+      const paneStatus = await pi.exec("tmux", ["display-message", "-p", "-t", pane, "#{pane_id}"], { timeout: 5_000 });
+      if (paneStatus.code !== 0 || paneStatus.stdout.trim() !== pane) removeWatcher();
+    }).catch(() => { /* notification plumbing must never break Pi */ });
+  }, PANE_HEALTHCHECK_MS);
+  healthcheckTimer.unref();
+  const watcher = activeWatchers.get(notifyFile);
+  if (watcher) watcher.healthcheckTimer = healthcheckTimer;
+  fs.watchFile(notifyFile, { interval: NOTIFY_POLL_MS }, processEvents);
+  processEvents();
 }
 
 /** True when this session was itself spawned by spawn_agent (child marker). */

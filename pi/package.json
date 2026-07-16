@@ -1,0 +1,9 @@
+{
+  "name": "isaac-pi-extensions",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "scripts": {
+    "test": "node --experimental-strip-types --test extensions/*.test.ts"
+  }
+}

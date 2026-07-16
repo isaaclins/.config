@@ -1,7 +1,8 @@
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
+import { SessionPoller } from "./usage-lifecycle.ts";
 
 /**
  * Anthropic subscription usage, migrated from the Claude Code statusline
@@ -38,22 +39,31 @@ export default function (pi: ExtensionAPI) {
   let warnedThisWindow = false;
   let lastResetsAt = "";
 
-  async function refresh(ctx: { ui: any }, force = false): Promise<Usage | undefined> {
+  let sessionActive = false;
+  let refreshController: AbortController | undefined;
+
+  async function refresh(ctx: ExtensionContext, force = false): Promise<Usage | undefined> {
     const now = Date.now();
-    if (!force && now - lastFetchAt < REFRESH_INTERVAL_MS) return;
+    if (!sessionActive || (!force && now - lastFetchAt < REFRESH_INTERVAL_MS)) return;
     lastFetchAt = now;
+    refreshController?.abort();
+    const controller = new AbortController();
+    refreshController = controller;
 
     try {
-      const usage = await fetchUsage();
+      const usage = await fetchUsage(controller.signal);
+      if (!sessionActive || refreshController !== controller) return;
       updateFooter(ctx, usage);
       maybeWarn(ctx, usage);
       return usage;
     } catch {
       return undefined; // usage display must never break a session
+    } finally {
+      if (refreshController === controller) refreshController = undefined;
     }
   }
 
-  function updateFooter(ctx: { ui: any }, usage: Usage): void {
+  function updateFooter(ctx: ExtensionContext, usage: Usage): void {
     const fiveHour = Math.round(usage.five_hour.utilization ?? 0);
     const sevenDay = Math.round(usage.seven_day.utilization ?? 0);
     const fiveReset = compactReset(usage.five_hour.resets_at);
@@ -66,7 +76,7 @@ export default function (pi: ExtensionAPI) {
     }
   }
 
-  function maybeWarn(ctx: { ui: any }, usage: Usage): void {
+  function maybeWarn(ctx: ExtensionContext, usage: Usage): void {
     const fiveHour = usage.five_hour;
     if (fiveHour.resets_at !== lastResetsAt) {
       lastResetsAt = fiveHour.resets_at ?? "";
@@ -81,25 +91,39 @@ export default function (pi: ExtensionAPI) {
     }
   }
 
-  let pollTimer: ReturnType<typeof setInterval> | undefined;
-  let activeCtx: { ui: any } | undefined;
+  let activeCtx: ExtensionContext | undefined;
+  const poller = new SessionPoller({ setInterval, clearInterval }, POLL_INTERVAL_MS);
 
-  function startPolling(ctx: { ui: any }): void {
+  function startPolling(ctx: ExtensionContext): void {
     activeCtx = ctx;
-    if (pollTimer) return;
-    pollTimer = setInterval(() => {
+    poller.start(() => {
       if (activeCtx) void refresh(activeCtx);
-    }, POLL_INTERVAL_MS);
-    // Don't keep the process alive just for the usage gauge.
-    pollTimer.unref?.();
+    });
+  }
+
+  function cleanup(ctx?: ExtensionContext): void {
+    poller.stop();
+    refreshController?.abort();
+    refreshController = undefined;
+    sessionActive = false;
+    const footerContext = ctx ?? activeCtx;
+    for (const key of STATUS_KEYS) footerContext?.ui.setStatus(key, undefined);
+    activeCtx = undefined;
   }
 
   pi.on("session_start", async (_event, ctx) => {
+    cleanup();
+    sessionActive = true;
     startPolling(ctx);
     void refresh(ctx, true);
   });
 
+  pi.on("session_shutdown", async (_event, ctx) => {
+    cleanup(ctx);
+  });
+
   pi.on("agent_end", async (_event, ctx) => {
+    if (!sessionActive) return;
     activeCtx = ctx;
     void refresh(ctx);
   });
@@ -117,12 +141,13 @@ export default function (pi: ExtensionAPI) {
   });
 }
 
-async function fetchUsage(): Promise<Usage> {
+async function fetchUsage(signal: AbortSignal): Promise<Usage> {
   const auth = JSON.parse(readFileSync(AUTH_PATH, "utf8"));
   const token = auth?.anthropic?.access;
   if (!token) throw new Error("no Anthropic OAuth token in auth.json");
 
   const res = await fetch(USAGE_URL, {
+    signal,
     headers: {
       Authorization: `Bearer ${token}`,
       "anthropic-beta": "oauth-2025-04-20",

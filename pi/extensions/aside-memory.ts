@@ -1,24 +1,12 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join, normalize } from "node:path";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { homedir } from "node:os";
+import { listMemoryFiles, readMemoryFile, truncateMemoryOutput } from "./aside-memory-helpers.ts";
 
-/**
- * Bridge to Aside Browser's agent memory (read-only).
- *
- * Aside maintains a layered memory at ~/.aside/u/0/agents/main/memory:
- * - L1 briefings (MEMORY.md, USER.md): tiny by design, meant for prompt
- *   loading. Injected into the system prompt once per session (~1K tokens).
- * - Deeper layers (people/, sites/, projects/, episodic/, users/, agent/):
- *   exposed through the aside_memory tool, so they cost nothing until the
- *   model actually needs them.
- *
- * Pi never writes to Aside's memory; Aside's own "dreaming" process owns it.
- */
-
+/** Read-only bridge to Aside Browser's layered agent memory. */
 const MEMORY_ROOT = join(homedir(), ".aside/u/0/agents/main/memory");
-const IGNORED_DIRS = new Set([".moss-cache"]);
 
 export default function (pi: ExtensionAPI) {
   let injectedThisSession = false;
@@ -33,8 +21,11 @@ export default function (pi: ExtensionAPI) {
 
     const briefings: string[] = [];
     for (const file of ["USER.md", "MEMORY.md"]) {
-      const path = join(MEMORY_ROOT, file);
-      if (existsSync(path)) briefings.push(readFileSync(path, "utf8").trim());
+      try {
+        briefings.push(truncateMemoryOutput(readMemoryFile(MEMORY_ROOT, file)).trim());
+      } catch {
+        // A missing, unsafe, or malformed briefing must not block Pi.
+      }
     }
     if (briefings.length === 0) return;
 
@@ -51,70 +42,40 @@ export default function (pi: ExtensionAPI) {
     name: "aside_memory",
     label: "Aside memory",
     description:
-      "Read-only access to Aside's layered agent memory about the user: people/ (contacts), sites/ (per-website knowledge), projects/, episodic/ (daily logs), users/ (full user dossier). Actions: list (all memory files), read (one file by relative path), search (case-insensitive text search across all files).",
+      "Read-only access to Aside's layered agent memory about the user. Actions list, read, and search are limited to 50 KB or 2,000 lines.",
     parameters: Type.Object({
-      action: Type.Union(
-        [Type.Literal("list"), Type.Literal("read"), Type.Literal("search")],
-        { description: "What to do" },
-      ),
-      path: Type.Optional(
-        Type.String({ description: "Relative path for read, e.g. people/max-laemmler.md" }),
-      ),
+      action: Type.Union([Type.Literal("list"), Type.Literal("read"), Type.Literal("search")]),
+      path: Type.Optional(Type.String({ description: "Relative path for read, e.g. people/max-laemmler.md" })),
       query: Type.Optional(Type.String({ description: "Search term for search" })),
     }),
     async execute(_toolCallId, params) {
-      const text = runAction(params);
-      return { content: [{ type: "text", text }], details: {} };
+      return { content: [{ type: "text", text: runAction(params) }], details: {} };
     },
   });
 }
 
-function runAction(params: { action: string; path?: string; query?: string }): string {
+export function runAction(params: { action: string; path?: string; query?: string }): string {
   if (!existsSync(MEMORY_ROOT)) return "Aside memory not found on this machine.";
 
-  if (params.action === "list") {
-    return listMemoryFiles().join("\n") || "No memory files found.";
-  }
-
-  if (params.action === "read") {
-    if (!params.path) return "Error: path is required for read.";
-    const resolved = normalize(join(MEMORY_ROOT, params.path));
-    if (!resolved.startsWith(MEMORY_ROOT)) return "Error: path escapes memory root.";
-    if (!existsSync(resolved)) return `Error: no such file: ${params.path}`;
-    return readFileSync(resolved, "utf8");
-  }
-
-  if (params.action === "search") {
-    if (!params.query) return "Error: query is required for search.";
-    const needle = params.query.toLowerCase();
-    const hits: string[] = [];
-    for (const relPath of listMemoryFiles()) {
-      const content = readFileSync(join(MEMORY_ROOT, relPath), "utf8");
-      const matches = content
-        .split("\n")
-        .filter((line) => line.toLowerCase().includes(needle))
-        .slice(0, 5);
-      if (matches.length > 0) {
-        hits.push(`${relPath}:\n${matches.map((m) => `  ${m.trim()}`).join("\n")}`);
+  try {
+    if (params.action === "list") return truncateMemoryOutput(listMemoryFiles(MEMORY_ROOT).join("\n") || "No memory files found.");
+    if (params.action === "read") {
+      if (!params.path) return "Error: path is required for read.";
+      return truncateMemoryOutput(readMemoryFile(MEMORY_ROOT, params.path));
+    }
+    if (params.action === "search") {
+      if (!params.query) return "Error: query is required for search.";
+      const needle = params.query.toLowerCase();
+      const hits: string[] = [];
+      for (const relativePath of listMemoryFiles(MEMORY_ROOT)) {
+        const matches = readMemoryFile(MEMORY_ROOT, relativePath).split("\n")
+          .filter((line) => line.toLowerCase().includes(needle)).slice(0, 5);
+        if (matches.length > 0) hits.push(`${relativePath}:\n${matches.map((match) => `  ${match.trim()}`).join("\n")}`);
       }
+      return truncateMemoryOutput(hits.join("\n\n") || `No matches for "${params.query}".`);
     }
-    return hits.join("\n\n") || `No matches for "${params.query}".`;
+  } catch (error) {
+    return `Error: ${(error as Error).message}`;
   }
-
   return `Unknown action: ${params.action}`;
-}
-
-function listMemoryFiles(dir = MEMORY_ROOT, prefix = ""): string[] {
-  const results: string[] = [];
-  for (const entry of readdirSync(dir)) {
-    if (entry.startsWith(".") || IGNORED_DIRS.has(entry)) continue;
-    const full = join(dir, entry);
-    const rel = prefix ? `${prefix}/${entry}` : entry;
-    if (statSync(full).isDirectory()) {
-      results.push(...listMemoryFiles(full, rel));
-    } else if (entry.endsWith(".md")) {
-      results.push(rel);
-    }
-  }
-  return results;
 }
