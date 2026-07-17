@@ -25,10 +25,12 @@ const TITLE_MAX_CHARS = 120;
 const VIEWER_ROWS = 20;
 
 export default function (pi: ExtensionAPI) {
-  const inTmux = Boolean(process.env.TMUX);
+  const paneId = process.env.TMUX_PANE;
+  const inTmux = Boolean(process.env.TMUX && paneId);
   let lastPrompt: string | undefined;
   let borderEnabled = false;
   let previousBorderStatus: string | undefined;
+  let previousAllowSetTitle: string | undefined;
 
   async function tmux(args: string[]): Promise<string> {
     const result = await pi.exec("tmux", args, { timeout: 3000 });
@@ -39,10 +41,19 @@ export default function (pi: ExtensionAPI) {
     if (borderEnabled) return;
     borderEnabled = true;
     try {
-      previousBorderStatus = await tmux(["show-options", "-wv", "pane-border-status"]);
-      await tmux(["set-option", "-w", "pane-border-status", "top"]);
+      previousBorderStatus = await tmux(["show-options", "-wv", "-t", paneId!, "pane-border-status"]);
+      await tmux(["set-option", "-w", "-t", paneId!, "pane-border-status", "top"]);
     } catch {
       // tmux too old or not reachable; the title alone is harmless.
+    }
+    try {
+      // Pi's TUI emits Kitty graphics APC sequences (e.g. "Ga=d,d=A,q=2") that
+      // tmux would otherwise interpret as pane-title writes, clobbering ours.
+      // allow-set-title off blocks escape-sequence titles but not select-pane -T.
+      previousAllowSetTitle = await tmux(["show-options", "-pv", "-t", paneId!, "allow-set-title"]);
+      await tmux(["set-option", "-p", "-t", paneId!, "allow-set-title", "off"]);
+    } catch {
+      // tmux < 3.4: no allow-set-title; titles may still get clobbered mid-turn.
     }
   }
 
@@ -50,11 +61,16 @@ export default function (pi: ExtensionAPI) {
     if (!borderEnabled) return;
     borderEnabled = false;
     try {
-      await tmux(["select-pane", "-T", ""]);
+      await tmux(["select-pane", "-t", paneId!, "-T", ""]);
       if (previousBorderStatus) {
-        await tmux(["set-option", "-w", "pane-border-status", previousBorderStatus]);
+        await tmux(["set-option", "-w", "-t", paneId!, "pane-border-status", previousBorderStatus]);
       } else {
-        await tmux(["set-option", "-wu", "pane-border-status"]);
+        await tmux(["set-option", "-wu", "-t", paneId!, "pane-border-status"]);
+      }
+      if (previousAllowSetTitle) {
+        await tmux(["set-option", "-p", "-t", paneId!, "allow-set-title", previousAllowSetTitle]);
+      } else {
+        await tmux(["set-option", "-pu", "-t", paneId!, "allow-set-title"]);
       }
     } catch {
       // Best effort cleanup.
@@ -63,7 +79,10 @@ export default function (pi: ExtensionAPI) {
 
   async function paneWidth(): Promise<number> {
     try {
-      const width = Number.parseInt(await tmux(["display-message", "-p", "#{pane_width}"]), 10);
+      const width = Number.parseInt(
+        await tmux(["display-message", "-t", paneId!, "-p", "#{pane_width}"]),
+        10,
+      );
       return Number.isFinite(width) && width > 20 ? width : TITLE_MAX_CHARS;
     } catch {
       return TITLE_MAX_CHARS;
@@ -80,7 +99,7 @@ export default function (pi: ExtensionAPI) {
       const line = buildStickyLine(lastPrompt, maxChars);
       await enableBorderOnce();
       try {
-        await tmux(["select-pane", "-T", line]);
+        await tmux(["select-pane", "-t", paneId!, "-T", line]);
       } catch {
         // Pane may have closed mid-command; nothing to do.
       }
