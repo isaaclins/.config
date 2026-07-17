@@ -39,7 +39,7 @@ Rule of thumb: if writing the delegation prompt would take as long as doing the 
 ## Override
 If the user explicitly tells you to do a task yourself, do it inline. This default yields to a direct instruction.
 
-Agent-type names vary per tool: in Claude Code use the `implementer` agent type via the Agent tool. In Pi, when running inside tmux, delegate via `spawn_agent` (visible tmux pane, user can watch and steer); use the headless `subagent` tool only when its extra machinery is actually needed (context forking, chains, parallel fan-out, worktrees, async batch runs) or when not in tmux. The doctrine above applies to both.
+Agent-type names vary per tool: in Claude Code use the `implementer` agent type via the Agent tool. In Pi, when running inside tmux, delegate via `spawn_agent` (visible tmux pane, user can watch and steer; supports context: "fork" to share the conversation and parallelism by spawning several panes); use the headless `subagent` tool only when its extra machinery is actually needed (declarative chains, git-worktree isolation, structured output schemas, budgets) or when not in tmux. The doctrine above applies to both.
 
 # Skills: proactive use and self-authorship
 

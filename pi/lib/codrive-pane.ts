@@ -1,4 +1,5 @@
 import type { SpawnReportRecord } from "./codrive-state.ts";
+import type { ForkResult } from "./codrive-fork.ts";
 
 export function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'\\''`)}'`;
@@ -9,11 +10,14 @@ export function buildPiArguments(
   configuredModel: string | null,
   configuredThinking: string | null,
   overrideModel?: string,
+  fork?: ForkResult,
 ): string[] {
   const args: string[] = [];
   const model = overrideModel ?? configuredModel;
   if (model) args.push("--model", model);
-  if (configuredThinking) args.push("--thinking", configuredThinking);
+  const thinking = fork?.thinkingOverride ?? configuredThinking;
+  if (thinking) args.push("--thinking", thinking);
+  if (fork) args.push("--session", fork.sessionFile);
   if (prompt) args.push(prompt);
   return args;
 }

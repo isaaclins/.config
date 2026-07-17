@@ -1,6 +1,7 @@
-import type {
-  ExtensionAPI,
-  ExtensionContext,
+import {
+  SessionManager,
+  type ExtensionAPI,
+  type ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 import { StringEnum } from "@earendil-works/pi-ai";
 import { truncateToWidth } from "@earendil-works/pi-tui";
@@ -21,6 +22,7 @@ import {
   type IpcServer,
 } from "../lib/codrive-ipc.ts";
 import { ReportRouter } from "../lib/codrive-router.ts";
+import { createForkedSession, type ForkResult } from "../lib/codrive-fork.ts";
 import {
   buildLaunch,
   buildPiArguments,
@@ -234,10 +236,21 @@ export default function piCodrive(pi: ExtensionAPI): void {
     healthTimers.set(pane, healthTimer);
   };
 
+  const resolveFork = (
+    ctx: ExtensionContext,
+    context?: "fresh" | "fork",
+  ): ForkResult | undefined => {
+    if (context !== "fork") return undefined;
+    return createForkedSession(ctx.sessionManager, (file, dir) =>
+      SessionManager.open(file, dir),
+    );
+  };
+
   const spawnAndRegister = async (
     cwd: string,
     prompt?: string,
     model?: string,
+    fork?: ForkResult,
   ): Promise<string> => {
     if (CHILD_ENV) throw new Error("Delegation is limited to one level");
     if (!process.env.TMUX)
@@ -247,7 +260,7 @@ export default function piCodrive(pi: ExtensionAPI): void {
     if (!ipc || !config) throw new Error("IPC server is not ready");
     const launch = buildLaunch(
       config.piCommand,
-      buildPiArguments(prompt, config.model, config.thinking, model),
+      buildPiArguments(prompt, config.model, config.thinking, model, fork),
     );
     const command = `tmux set-option -p remain-on-exit on; tmux set-option -p ${shellQuote(config.tmux.roleOption)} subagent; ${SOCKET_ENV}=${shellQuote(ipc.path)} ${NONCE_ENV}=${shellQuote(ipc.nonce)} exec ${launch}`;
     const args = [
@@ -274,10 +287,21 @@ export default function piCodrive(pi: ExtensionAPI): void {
 
   pi.registerCommand("spawn", {
     description:
-      "Spawn a shared live subagent pane with an optional initial prompt",
+      "Spawn a shared live subagent pane with an optional initial prompt. Prefix with --fork to share this conversation's context.",
     handler: async (args, ctx) => {
       try {
-        const pane = await spawnAndRegister(ctx.cwd, args.trim() || undefined);
+        let text = args.trim();
+        let fork: ForkResult | undefined;
+        if (text === "--fork" || text.startsWith("--fork ")) {
+          fork = resolveFork(ctx, "fork");
+          text = text.slice("--fork".length).trim();
+        }
+        const pane = await spawnAndRegister(
+          ctx.cwd,
+          text || undefined,
+          undefined,
+          fork,
+        );
         ctx.ui.notify(`Spawned shared SUBAGENT tmux pane ${pane}.`, "info");
       } catch (error) {
         ctx.ui.notify(
@@ -292,13 +316,20 @@ export default function piCodrive(pi: ExtensionAPI): void {
     name: "spawn_agent",
     label: "Spawn Subagent",
     description:
-      "Spawn a live Pi subagent in a shared tmux pane. The authenticated completion report is delivered directly as a compact custom message. Use agent_report only for history and agent_pane for live inspection or steering. One delegation level only.",
+      "Spawn a live Pi subagent in a shared tmux pane. The authenticated completion report is delivered directly as a compact custom message. Set context to 'fork' to give the child a branched copy of this conversation so the prompt does not need to restate prior context; default 'fresh' starts blank and requires a self-contained prompt. Use agent_report only for history and agent_pane for live inspection or steering. One delegation level only.",
     parameters: Type.Object({
       prompt: Type.Optional(Type.String()),
       model: Type.Optional(Type.String()),
+      context: Type.Optional(StringEnum(["fresh", "fork"] as const)),
     }),
     async execute(_id, params, _signal, _update, ctx) {
-      const pane = await spawnAndRegister(ctx.cwd, params.prompt, params.model);
+      const fork = resolveFork(ctx, params.context);
+      const pane = await spawnAndRegister(
+        ctx.cwd,
+        params.prompt,
+        params.model,
+        fork,
+      );
       return {
         content: [
           {
