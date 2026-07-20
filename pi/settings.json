@@ -14,7 +14,7 @@
     "claude-haiku-4-5",
     "claude-fable-5"
   ],
-  "externalEditor": "/Users/taaliis4/.config/pi/pi-external-editor",
+  "externalEditor": "~/.config/pi/pi-external-editor",
   "followUpMode": "one-at-a-time",
   "lastChangelogVersion": "0.80.3",
   "packages": [
@@ -23,10 +23,10 @@
     "npm:@isaaclins/pi-fish-bridge@0.1.0",
     "npm:@isaaclins/pi-arcoiris-refined@1.0.0",
     "npm:pi-powerline-footer",
-    "/Users/taaliis4/.config/pi/modules/pi-context",
-    "/Users/taaliis4/.config/pi/modules/pi-memory",
-    "/Users/taaliis4/.config/pi/modules/pi-codrive",
-    "/Users/taaliis4/.config/pi/packages/pi-computer-use-codex-parity"
+    "~/.config/pi/modules/pi-context",
+    "~/.config/pi/modules/pi-memory",
+    "~/.config/pi/modules/pi-codrive",
+    "~/.config/pi/packages/pi-computer-use-codex-parity"
   ],
   "powerline": {
     "customItems": [
