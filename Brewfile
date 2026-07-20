@@ -152,8 +152,6 @@ cask "utm"
 cask "vesktop"
 # Open-source code editor
 cask "visual-studio-code"
-# AI code editor
-cask "void"
 # Native desktop client for WhatsApp
 cask "whatsapp"
 # Network protocol analyzer
