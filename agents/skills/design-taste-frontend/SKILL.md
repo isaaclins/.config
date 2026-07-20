@@ -1,11 +1,11 @@
 ---
 name: design-taste-frontend
-description: Anti-slop frontend skill for landing pages, portfolios, and redesigns. The agent reads the brief, infers the right design direction, and ships interfaces that do not look templated. Real design systems when applicable, audit-first on redesigns, strict pre-flight check.
+description: Anti-slop frontend design and implementation for new landing pages, portfolios, editorial sites, and marketing surfaces. Use for greenfield or replacement marketing interfaces where Codex must infer a design direction and ship the page. For improving an existing interface in place, use redesign-existing-projects instead.
 ---
 
 # tasteskill: Anti-Slop Frontend Skill
 
-> Landing pages, portfolios, and redesigns. Not dashboards, not data tables, not multi-step product UI.
+> New landing pages, portfolios, editorial sites, and marketing surfaces. Not in-place redesigns, dashboards, data tables, or multi-step product UI.
 > Every rule below is **contextual**. None of it fires automatically. First read the brief, then pull only what fits.
 
 ---
@@ -559,7 +559,7 @@ NEVER spam arbitrary `z-50` or `z-10`. Use z-index strictly for systemic layer c
 
 ### MOTION_INTENSITY (Level 1-10)
 * **1-3 (Static):** No automatic animations. CSS `:hover` and `:active` states only. `prefers-reduced-motion` is the default mode anyway.
-* **4-7 (Fluid CSS):** `transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1)`. `animation-delay` cascades for load-ins. Focus on `transform` and `opacity`.
+* **4-7 (Fluid CSS):** Transition only the properties that change, usually `transform` and `opacity`, with `0.3s cubic-bezier(0.16, 1, 0.3, 1)`. Use `animation-delay` cascades for load-ins.
 * **8-10 (Advanced Choreography):** Complex scroll-triggered reveals, parallax, scroll-driven animation (CSS `animation-timeline` or GSAP ScrollTrigger). Use Motion hooks. **NEVER use `window.addEventListener('scroll')`** - it is a hard ban, not a "prefer-not." See Section 5.D for the allowed alternatives.
 
 ### VISUAL_DENSITY (Level 1-10)

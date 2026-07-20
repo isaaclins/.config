@@ -35,6 +35,8 @@ agents/**
 
 # Shared, tracked content.
 !agents/AGENTS.md
+!agents/pi/
+!agents/pi/AGENTS.md
 !agents/skills
 !agents/skills/**
 

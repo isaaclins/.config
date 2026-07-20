@@ -1,6 +1,6 @@
 ---
 name: sdx-design
-description: "SDX (Swisscom Digital Experience) design system skill. Use SDX web components (<sdx-*>) for all UI elements (buttons, inputs, selects, dialogs, tabs, accordions, icons, etc.) and Tailwind CSS with tw: prefix for layout, spacing, and custom styling. Triggers: building UI, creating components, styling pages, designing layouts in Swisscom projects."
+description: "SDX (Swisscom Digital Experience) design system skill. Use sdx-prefixed web components for all UI elements and Tailwind CSS with the tw: prefix for layout, spacing, and custom styling. Trigger when building UI, creating components, styling pages, or designing layouts in Swisscom projects."
 ---
 
 # SDX Design System + Tailwind Layout

@@ -1,6 +1,6 @@
 ---
 name: better-animation
-description: "Web and React motion engineering in code: chooses CSS vs Motion vs GSAP, enforces GPU-safe properties, custom easing, spring orchestration, prefers-reduced-motion, and cleanup, with ready-to-use skeletons (drawers, scroll pinning, magnetic hover). Use when implementing and shipping animation as working web or React code."
+description: "Implement and ship non-trivial web or React motion in code using CSS, Motion, or GSAP, with GPU-safe properties, reduced-motion behavior, orchestration, and cleanup. Use for drawers, enter/exit motion, scroll pinning, gesture physics, magnetic hover, or animation performance work. Do not trigger for general visual polish without meaningful motion."
 ---
 
 # Better Animation — Motion Engineering for the Web
@@ -34,7 +34,7 @@ Verify the library is in `package.json` before importing. Lazy-load anything hea
 
 ## 3. The easing system (use these, not the defaults)
 
-**Never ship `linear` or `ease-in-out`.** They read as robotic.
+**Never ship the CSS keywords `linear` or `ease-in-out` as UI easing.** They read as robotic. A custom cubic-bezier token may still be named `--ease-in-out` when its curve is explicitly defined.
 
 ```css
 --ease-out:    cubic-bezier(0.16, 1, 0.3, 1);   /* expo-out: snappy in, soft settle — default for entrances/most UI */

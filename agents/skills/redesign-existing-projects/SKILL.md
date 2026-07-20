@@ -1,6 +1,6 @@
 ---
 name: redesign-existing-projects
-description: "Upgrade an existing website or app in place: scan the stack, audit for generic AI patterns, and apply premium fixes without breaking functionality (any CSS framework). Use when the user wants to redesign, improve, modernize, or make better an interface that already exists in the codebase."
+description: "Upgrade an existing website or app in place while preserving behavior, routes, analytics, and the established stack. Use when the user asks to redesign, improve, modernize, or polish an interface that already exists in a codebase. This is the primary skill for existing-project redesigns; use design-taste-frontend only for new or replacement marketing surfaces."
 ---
 
 # Redesign Skill
