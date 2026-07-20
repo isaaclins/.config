@@ -97,8 +97,6 @@ brew "zellij"
 brew "zoxide"
 # Enable Windows-like alt-tab
 cask "alt-tab"
-# Agent orchestration platform
-cask "antigravity"
 # Chromium based browser
 cask "arc"
 # Web browser with built-in AI assistant
