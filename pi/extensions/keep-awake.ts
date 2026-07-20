@@ -3,11 +3,10 @@
 // wrapper behavior for the pi harness:
 //   1. caffeinate -dimsu -w <pi pid>: blocks idle/system/display sleep and
 //      dies with pi automatically, so crashes never leak an assertion.
-//   2. sudo -n pmset -a disablesleep 1: additionally blocks lid-closed sleep.
-//      Machine-global, so it is refcounted across concurrent pi sessions and
-//      only reverted when the last one exits. Requires the passwordless
-//      sudoers grant from bootstrap/cli/shell/install-pmset-keepawake.sh;
-//      without it this layer is skipped with a one-time hint.
+//   2. Optional sudo -n pmset -a disablesleep 1 for lid-closed sleep. This is
+//      machine-global and therefore requires PI_ALLOW_GLOBAL_DISABLESLEEP=1
+//      in addition to the passwordless sudoers grant. It is never enabled by
+//      merely starting Pi.
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { spawn, type ChildProcess } from "node:child_process";
 import { platform } from "node:os";
@@ -19,6 +18,12 @@ import {
 } from "../lib/keep-awake.ts";
 
 const PMSET = "/usr/bin/pmset";
+
+export function shouldDisableLidSleep(
+  env: Record<string, string | undefined> = process.env,
+): boolean {
+  return env.PI_ALLOW_GLOBAL_DISABLESLEEP === "1";
+}
 
 export default function keepAwake(pi: ExtensionAPI): void {
   if (platform() !== "darwin") return;
@@ -49,8 +54,9 @@ export default function keepAwake(pi: ExtensionAPI): void {
     } catch {
       // Keep-awake must never break pi startup.
     }
-    lidClosedArmed = await setDisableSleep(1);
-    if (!lidClosedArmed && ctx.mode === "tui") {
+    const lidSleepRequested = shouldDisableLidSleep();
+    lidClosedArmed = lidSleepRequested && (await setDisableSleep(1));
+    if (lidSleepRequested && !lidClosedArmed && ctx.mode === "tui") {
       ctx.ui.notify(
         "keep-awake: idle sleep blocked; for lid-closed keep-awake run bootstrap/cli/shell/install-pmset-keepawake.sh once",
         "info",

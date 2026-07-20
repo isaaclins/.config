@@ -1,0 +1,33 @@
+{
+  "name": "@isaaclins/pi-context",
+  "version": "0.1.0",
+  "description": "Session context lifecycle for Pi: compaction/resume, usage visualization, token budgets, interrupt-and-submit",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "files": [
+    "extensions",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "pi": {
+    "extensions": [
+      "./extensions/index.ts"
+    ]
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "pack-check": "npm pack --dry-run"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "0.80.3"
+  },
+  "devDependencies": {
+    "@types/node": "24.12.4",
+    "typescript": "5.9.3"
+  }
+}

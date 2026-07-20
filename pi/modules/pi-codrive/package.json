@@ -1,0 +1,41 @@
+{
+  "name": "@isaaclins/pi-codrive",
+  "version": "0.1.0",
+  "description": "Restart-tolerant tmux codrive delegation for Pi",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "keywords": [
+    "pi-package",
+    "pi",
+    "tmux",
+    "delegation"
+  ],
+  "exports": "./src/index.ts",
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "0.80.3",
+    "typebox": "*"
+  },
+  "pi": {
+    "extensions": [
+      "./extension.ts"
+    ]
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "typecheck": "node scripts/typecheck.mjs",
+    "pack-check": "node scripts/pack-check.mjs && npm pack --dry-run"
+  },
+  "files": [
+    "extension.ts",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "devDependencies": {
+    "@types/node": "24.12.4",
+    "typescript": "5.9.3"
+  }
+}

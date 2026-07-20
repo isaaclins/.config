@@ -1,4 +1,4 @@
 {
-  "model": "openai-codex/gpt-5.6-luna",
-  "thinking": "low"
+  "model": "anthropic/claude-opus-4-8",
+  "thinking": "high"
 }

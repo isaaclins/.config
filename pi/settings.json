@@ -1,7 +1,7 @@
 {
   "collapseChangelog": true,
   "defaultModel": "claude-fable-5",
-  "defaultProjectTrust": "always",
+  "defaultProjectTrust": "ask",
   "defaultProvider": "anthropic",
   "defaultThinkingLevel": "high",
   "doubleEscapeAction": "tree",
@@ -20,9 +20,13 @@
   "packages": [
     "npm:@gotgenes/pi-anthropic-auth",
     "npm:pi-web-access",
-    "npm:pi-subagents",
+    "npm:@isaaclins/pi-fish-bridge@0.1.0",
+    "npm:@isaaclins/pi-arcoiris-refined@1.0.0",
     "npm:pi-powerline-footer",
-    "git:github.com/injaneity/pi-computer-use@v0.4.2"
+    "/Users/taaliis4/.config/pi/modules/pi-context",
+    "/Users/taaliis4/.config/pi/modules/pi-memory",
+    "/Users/taaliis4/.config/pi/modules/pi-codrive",
+    "/Users/taaliis4/.config/pi/packages/pi-computer-use-codex-parity"
   ],
   "powerline": {
     "customItems": [
@@ -48,19 +52,8 @@
     "preset": "default"
   },
   "quietStartup": false,
-  "shellCommandPrefix": "export PATH=\"$HOME/.config/pi/fish-shims:$PATH\"; __pcwd=\"${TMPDIR:-/tmp}/pi-cwd-$PPID\"; [ -f \"$__pcwd\" ] && { __d=$(cat \"$__pcwd\" 2>/dev/null); [ -d \"$__d\" ] && cd \"$__d\"; }; trap 'pwd > \"$__pcwd\" 2>/dev/null' EXIT",
+  "shellCommandPrefix": "export PATH=\"${XDG_CACHE_HOME:-$HOME/.cache}/pi-fish-bridge/shims:$PATH\"",
   "showHardwareCursor": false,
-  "subagents": {
-    "agentOverrides": {
-      "oracle": {
-        "model": "claude-opus-4-8"
-      },
-      "worker": {
-        "model": "claude-opus-4-8"
-      }
-    },
-    "defaultModel": "claude-haiku-4-5"
-  },
   "terminal": {
     "clearOnShrink": false,
     "showTerminalProgress": true

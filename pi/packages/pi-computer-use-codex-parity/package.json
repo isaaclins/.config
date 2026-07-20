@@ -1,0 +1,71 @@
+{
+	"name": "@injaneity/pi-computer-use",
+	"version": "0.5.0",
+	"description": "Pi extension that lets AI agents observe and control macOS and Windows apps.",
+	"type": "module",
+	"keywords": [
+		"pi-package",
+		"pi-extension",
+		"pi",
+		"computer-use",
+		"macos",
+		"desktop-automation",
+		"accessibility"
+	],
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/injaneity/pi-computer-use.git"
+	},
+	"bugs": {
+		"url": "https://github.com/injaneity/pi-computer-use/issues"
+	},
+	"homepage": "https://github.com/injaneity/pi-computer-use#readme",
+	"engines": {
+		"node": ">=20.6.0"
+	},
+	"files": [
+		"extensions",
+		"src",
+		"scripts/build-native.mjs",
+		"scripts/setup-helper.mjs",
+		"native/macos/bridge.swift",
+		"native/windows/bridge-rs/Cargo.lock",
+		"native/windows/bridge-rs/Cargo.toml",
+		"native/windows/bridge-rs/src",
+		"native/windows/bridge-rs/tests",
+		"prebuilt/macos",
+		"prebuilt/windows",
+		"assets/reference/img.jpg",
+		"README.md",
+		"LICENSE"
+	],
+	"pi": {
+		"extensions": [
+			"./extensions"
+		],
+		"image": "./assets/reference/img.jpg"
+	},
+	"scripts": {
+		"postinstall": "node scripts/setup-helper.mjs --postinstall",
+		"typecheck": "tsc -p tsconfig.json",
+		"test:schema": "node scripts/check-tool-schemas.mjs",
+		"test:confirmation": "node --experimental-strip-types scripts/check-confirmation.mjs",
+		"test:invariants": "node scripts/check-invariants.mjs",
+		"test:commits": "node scripts/check-commit-messages.mjs",
+		"test:platform": "node --experimental-strip-types scripts/check-platform-windows.mjs",
+		"test:windows-scripts": "node scripts/check-windows-build-scripts.mjs",
+		"test": "npm run typecheck && npm run test:schema && npm run test:confirmation && npm run test:invariants",
+		"build:native": "node scripts/build-native.mjs",
+		"build:windows": "node scripts/build-native.mjs --platform windows"
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-ai": "*",
+		"@earendil-works/pi-coding-agent": "*",
+		"typebox": "*"
+	},
+	"devDependencies": {
+		"@types/node": "^25.6.0",
+		"typescript": "^6.0.3"
+	}
+}

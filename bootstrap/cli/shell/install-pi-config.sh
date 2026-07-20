@@ -4,11 +4,9 @@
 #   at ~/.config/pi. Only deliberate config is tracked and symlinked:
 #     ~/.pi/agent/settings.json  -> ~/.config/pi/settings.json
 #     ~/.pi/agent/models.json    -> ~/.config/pi/models.json
-#     ~/.pi/agent/AGENTS.md      -> ~/.config/agents/AGENTS.md (ONE unified
-#                                   rules file for Claude, Codex, and Pi)
+#     ~/.pi/agent/AGENTS.md      -> ~/.config/agents/pi/AGENTS.md
 #     ~/.pi/agent/extensions     -> ~/.config/pi/extensions (whole-dir link)
 #     ~/.pi/agent/lib            -> ~/.config/pi/lib (extension support modules)
-#     ~/.pi/agent/themes         -> ~/.config/pi/themes
 #     ~/.pi/agent/assets         -> ~/.config/pi/assets (Claude Notifier.app
 #                                   needed by the notify-sound extension)
 #   Everything else under ~/.pi/agent is runtime state (auth.json, sessions,
@@ -53,12 +51,10 @@ link() {
 
 link "$PI_HOME/settings.json" "$CANON/settings.json"
 link "$PI_HOME/models.json" "$CANON/models.json"
-link "$PI_HOME/AGENTS.md" "$HOME/.config/agents/AGENTS.md"
+link "$PI_HOME/AGENTS.md" "$HOME/.config/agents/pi/AGENTS.md"
 link "$PI_HOME/extensions" "$CANON/extensions"
 link "$PI_HOME/lib" "$CANON/lib"
 link "$PI_HOME/assets" "$CANON/assets"
-link "$PI_HOME/themes" "$CANON/themes"
 
-# Note: the fish-function shims Pi's bash puts on PATH (shellCommandPrefix)
-# are regenerated automatically on every session start by the fish-shims
-# extension (~/.config/pi/extensions/fish-shims.ts); nothing to do here.
+# Note: the Fish bridge package regenerates command shims in the runtime cache
+# on session start. The cache is not part of the dotfiles repository.

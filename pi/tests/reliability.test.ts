@@ -53,7 +53,7 @@ test("memory output truncation stays within both Pi limits and marks truncation"
   assert.match(truncatedBytes, /Output truncated/);
 });
 
-test("usage poller cleanup clears its interval and prevents duplicate pollers", () => {
+test("usage poller cleanup clears its interval and prevents duplicate pollers (shared by anthropic-usage.ts)", () => {
   let created = 0;
   let cleared = 0;
   const timer = { unref() {} } as unknown as ReturnType<typeof setInterval>;

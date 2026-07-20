@@ -1,0 +1,17 @@
+.DS_Store
+.pi/
+node_modules/
+index-*.js
+main.js
+
+# Local benchmark output
+benchmarks/results/*.local.*
+benchmarks/results/*local*
+tmp/
+
+# Rust build artifacts
+native/windows/bridge-rs/target/
+
+# Manual run outputs
+results/
+scripts/cubench-results.json

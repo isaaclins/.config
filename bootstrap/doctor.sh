@@ -138,6 +138,38 @@ except Exception as e:
   ok "externalEditor '$editor_value' resolves to executable"
 }
 
+check_pi_security_policy() {
+  local settings_file="$HOME/.config/pi/settings.json"
+  local result
+
+  result="$(python3 - "$settings_file" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as settings_handle:
+    settings = json.load(settings_handle)
+
+problems = []
+if settings.get("defaultProjectTrust", "ask") == "always":
+    problems.append("defaultProjectTrust must not be always")
+
+packages = settings.get("packages", [])
+sources = [item if isinstance(item, str) else item.get("source", "") for item in packages]
+if any(source == "npm:pi-subagents" or source.startswith("npm:pi-subagents@") for source in sources):
+    problems.append("pi-subagents must not be globally enabled beside pi-codrive")
+
+print("; ".join(problems))
+PY
+)"
+
+  if [[ -n "$result" ]]; then
+    fail "Pi security policy: $result"
+    return
+  fi
+
+  ok "Pi project trust and delegation defaults are secure"
+}
+
 # Main checks
 echo "Pi setup doctor starting..."
 echo
@@ -146,18 +178,20 @@ echo
 echo "=== Checking symlinks ==="
 check_symlink "$HOME/.pi/agent/settings.json" "$HOME/.config/pi/settings.json"
 check_symlink "$HOME/.pi/agent/models.json" "$HOME/.config/pi/models.json"
-check_symlink "$HOME/.pi/agent/AGENTS.md" "$HOME/.config/agents/AGENTS.md"
+check_symlink "$HOME/.pi/agent/AGENTS.md" "$HOME/.config/agents/pi/AGENTS.md"
 check_symlink "$HOME/.pi/agent/extensions" "$HOME/.config/pi/extensions"
 check_symlink "$HOME/.pi/agent/lib" "$HOME/.config/pi/lib"
 check_symlink "$HOME/.pi/agent/assets" "$HOME/.config/pi/assets"
-check_symlink "$HOME/.pi/agent/themes" "$HOME/.config/pi/themes"
 echo
 
 # 2. JSON validity
 echo "=== Checking JSON validity ==="
 check_json "$HOME/.config/pi/settings.json"
 check_json "$HOME/.config/pi/models.json"
-check_json "$HOME/.config/pi/themes/arcoiris-refined.json"
+echo
+
+echo "=== Checking Pi security policy ==="
+check_pi_security_policy
 echo
 
 # 3. External editor
