@@ -103,3 +103,7 @@ cmux/*.bak
 # Pi fish shims are generated output (generate-fish-shims.sh); never track them.
 pi/fish-shims/
 .pi-subagents/
+
+# Stripe CLI config: contains API keys (sk_test/sk_live), account_id, and
+# device hostname. Never track; this repo has a public remote.
+stripe/
