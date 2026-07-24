@@ -1,5 +1,6 @@
 tap "jsattler/tap"
 tap "peripheryapp/periphery"
+tap "stripe/stripe-cli"
 tap "thezoraiz/ascii-image-converter", "https://github.com/TheZoraiz/homebrew-ascii-image-converter"
 # Static checker for GitHub Actions workflow files
 brew "actionlint"
@@ -13,6 +14,8 @@ brew "bat"
 brew "bitwarden-cli"
 # Resource monitor. C++ version and continuation of bashtop and bpytop
 brew "btop"
+# TUI web browser with CSS, inline image and JavaScript support
+brew "chawan"
 # Tool for emulating mouse and keyboard events
 brew "cliclick"
 # CLI tool for Cloudflare Workers
@@ -29,8 +32,6 @@ brew "dotnet"
 brew "duti"
 # Modern, maintained replacement for ls
 brew "eza"
-# Powerful, lightweight programming language
-brew "lua"
 # Like neofetch, but much faster because written mostly in C
 brew "fastfetch"
 # Simple, fast and user-friendly alternative to find
@@ -39,6 +40,8 @@ brew "fd"
 brew "ffmpeg"
 # User-friendly command-line shell for UNIX-like operating systems
 brew "fish"
+# Command-line tools for fly.io services
+brew "flyctl"
 # Fast and simple Node.js version manager
 brew "fnm"
 # Command-line fuzzy finder written in Go
@@ -55,6 +58,8 @@ brew "go"
 brew "hugo"
 # Simple terminal UI for git commands
 brew "lazygit"
+# Powerful, lightweight programming language
+brew "lua"
 # Quickly generate a temporary email address
 brew "mailsy"
 # Deep clean and optimize your Mac
@@ -95,6 +100,8 @@ brew "yt-dlp"
 brew "zellij"
 # Shell extension to navigate your filesystem faster
 brew "zoxide"
+# Stripe CLI utility
+brew "stripe/stripe-cli/stripe", trusted: true
 # Enable Windows-like alt-tab
 cask "alt-tab"
 # Chromium based browser
