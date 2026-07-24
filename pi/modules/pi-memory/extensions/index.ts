@@ -86,31 +86,11 @@ export default function (pi: ExtensionAPI) {
     };
   });
 
-  pi.registerTool({
-    name: "remember",
-    label: "Remember",
-    description:
-      "Persist a durable fact for future sessions. scope='project' (default) for facts about THIS repo (build/test commands, architecture decisions, gotchas, file locations). scope='global' for facts about the user, their preferences, tools, or habits that apply across ALL projects. Keep each note to one concise line.",
-    parameters: Type.Object({
-      note: Type.String({ description: "One-line durable fact" }),
-      scope: Type.Optional(
-        Type.Union([Type.Literal("project"), Type.Literal("global")], {
-          description:
-            "'project' (default): about this repo only. 'global': about the user/environment, applies everywhere.",
-        }),
-      ),
-    }),
-    async execute(_toolCallId, params) {
-      const scope = params.scope === "global" ? "global" : "project";
-      const record = rememberNote(makeAuthority(), { note: params.note, scope });
-      rememberUsedThisSession = true;
-      return {
-        content: [{ type: "text", text: `Remembered (${scope}): ${record.value}` }],
-        details: {},
-      };
-    },
-  });
-
+  // No `remember` tool is registered on purpose. Agents must use
+  // `pi_memory_upsert`, whose stable keys make a record correctable and
+  // expirable; `appendNote`'s random `note.<uuid>` keys are append-only and
+  // produced a store that could only be cleaned up by hand. `/remember`
+  // stays as a fast human affordance.
   pi.registerCommand("remember", {
     description: "Save a memory note for future sessions (-g/--global for user-wide notes)",
     handler: async (args, ctx) => {
