@@ -4,9 +4,6 @@ import test from "node:test";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { readFileSync as readSrc } from "node:fs";
-import { resolve } from "node:path";
-
 import { MemoryAuthority } from "../src/memory-authority.ts";
 
 test("upsert keeps a stable record id and private structured storage", () => {
@@ -321,28 +318,4 @@ test("listActive returns only active records sorted by createdAt, tolerating a m
 
   // No project store configured -> empty list, no throw.
   assert.deepEqual(authority.listActive("project"), []);
-});
-
-test("module never reads or references Aside memory paths", () => {
-  // Policy: "Aside memory is retrieval-only. Never inject its user or episodic briefings automatically."
-  // This regression test scans all source and extension files for any reference to Aside paths.
-  const srcDir = resolve(import.meta.dirname!, "..");
-  const filesToCheck = [
-    "src/memory-authority.ts",
-    "extensions/index.ts",
-  ];
-  const asidePatterns = [/\.aside/i, /aside.*memory/i, /USER\.md/i, /MEMORY\.md/i, /episodic/i];
-
-  for (const file of filesToCheck) {
-    let content: string;
-    try {
-      content = readSrc(join(srcDir, file), "utf8");
-    } catch {
-      continue; // file may not exist yet during early development
-    }
-    for (const pattern of asidePatterns) {
-      assert.doesNotMatch(content, pattern,
-        `${file} must not reference Aside memory (matched ${pattern})`);
-    }
-  }
 });

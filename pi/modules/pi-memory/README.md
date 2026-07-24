@@ -12,14 +12,15 @@ Provides a `MemoryAuthority` that manages durable memory records in JSONL files 
 - Conflict resolution (project scope wins over global)
 - Record expiration and retirement
 
-The Pi extension (`extensions/index.ts`) wires this into the agent lifecycle: injecting active memory on session start, exposing the notes UX (`remember` tool, `/remember`, `/memory`, `/forget`), and exposing the keyed `pi_memory_upsert` / `pi_memory_retire` tools.
+The Pi extension (`extensions/index.ts`) wires this into the agent lifecycle: injecting active memory on session start, exposing the notes UX (`/remember`, `/memory`, `/forget`), and exposing the keyed `pi_memory_upsert` / `pi_memory_retire` tools.
 
 ## Notes UX
 
 Notes are an append-only journal built on `MemoryAuthority.appendNote`, which assigns a fresh unique key per call so repeated notes never overwrite each other (unlike `upsert`, which is a keyed overwrite store).
 
-- `remember` tool: params `note` (required) and `scope` (`project` default, or `global`). Global notes are stored as kind `preference`, project notes as kind `fact`, matching injection eligibility.
-- `/remember [-g|--global] <note>`: same behavior as a slash command.
+- `/remember [-g|--global] <note>`: appends a note. Global notes are stored as kind `preference`, project notes as kind `fact`, matching injection eligibility.
+
+There is deliberately **no `remember` tool**. Notes carry random `note.<uuid>` keys, so an agent that records a fact through them can never correct or expire it later; agents must use `pi_memory_upsert` with a stable key instead. `/remember` remains for the user, where append-only is the desired behavior.
 - `/memory`: lists every active (non-retired) note across both scopes with stable display indices (`g1`, `g2`, ... for global; `p1`, `p2`, ... for project), formatted `{index}: [{date}] {value}`. Indices are recomputed each time from current sorted-by-`createdAt` order. Empty scopes show `(none)`.
 - `/forget <g2|p3>` or `/forget <text>`: retires the matching active record (never physically deletes). A free-text search that matches more than one active record retires nothing and lists the candidates instead.
 
@@ -29,7 +30,7 @@ Records older than `staleDays` (default 90) get ` (old, verify before trusting)`
 
 ### Session-end nudge
 
-After a long session (10+ turns or 15+ minutes) in which the `remember` tool was never used, a single reminder is shown on `agent_end`: `Anything worth remembering? /remember [-g] <note>`. It fires at most once per session and costs zero LLM calls.
+After a long session (10+ turns or 15+ minutes) in which no note was recorded, a single reminder is shown on `agent_end`: `Anything worth remembering? /remember [-g] <note>`. It fires at most once per session and costs zero LLM calls.
 
 ## Migrating legacy dated-journal notes
 
@@ -71,10 +72,6 @@ When the same key exists in both global and project scope, the project-scope rec
 ### Size cap
 
 The `maxRecordChars` option enforces a hard limit on `value.length` at upsert time. The extension defaults to 2000 characters.
-
-## Hard policy: no automatic Aside injection
-
-This module never reads, references, or injects content from the Aside memory system (`~/.aside/`), `USER.md`, `MEMORY.md`, or episodic briefings. That content is retrieval-only per harness policy and belongs to the separate `aside-memory` extension. A regression test enforces this guarantee.
 
 ## Installation
 

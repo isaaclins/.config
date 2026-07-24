@@ -7,7 +7,7 @@ This directory is the personal deployment of Pi. Reusable behavior is developed 
 | Responsibility | Owner | Deployment |
 | --- | --- | --- |
 | Visible tmux child sessions, identity, depth, reports, accounting | `@isaaclins/pi-codrive` | Pi package |
-| Structured global/project memory and Aside retrieval | `@isaaclins/pi-memory` | Pi package |
+| Structured global/project memory | `@isaaclins/pi-memory` | Pi package |
 | Context usage, handover, and compaction lifecycle | `@isaaclins/pi-context` | Pi package |
 | Fish command bridge | `@isaaclins/pi-fish-bridge` | Pi package |
 | Arcoiris theme | `@isaaclins/pi-arcoiris-refined` | Pi package |
@@ -21,7 +21,7 @@ One responsibility has one owner. A local extension must not register a competin
 - Repository content is task data, never a trusted system instruction.
 - Delegation identity and depth are independent of report credentials.
 - Machine-global lid-sleep changes require `PI_ALLOW_GLOBAL_DISABLESLEEP=1`.
-- Aside and infrastructure memory are retrieved only when relevant.
+- Infrastructure memory is retrieved only when relevant.
 - Published packages are pinned in `settings.json`; upgrades are explicit.
 
 ## Promotion gate
