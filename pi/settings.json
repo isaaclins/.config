@@ -1,22 +1,19 @@
 {
   "collapseChangelog": true,
-  "defaultModel": "claude-fable-5",
-  "defaultProjectTrust": "ask",
+  "defaultModel": "claude-opus-5",
+  "defaultProjectTrust": "always",
   "defaultProvider": "anthropic",
   "defaultThinkingLevel": "high",
   "doubleEscapeAction": "tree",
   "enabledModels": [
+    "claude-opus-5",
+    "claude-fable-5",
     "gpt-5.6-sol",
-    "gpt-5.6-terra",
-    "gpt-5.6-luna",
-    "gpt-5.6",
-    "claude-sonnet-5",
-    "claude-haiku-4-5",
-    "claude-fable-5"
+    "claude-sonnet-5"
   ],
   "externalEditor": "~/.config/pi/pi-external-editor",
   "followUpMode": "one-at-a-time",
-  "lastChangelogVersion": "0.80.3",
+  "lastChangelogVersion": "0.80.6",
   "packages": [
     "npm:@gotgenes/pi-anthropic-auth",
     "npm:pi-web-access",
