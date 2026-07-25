@@ -19,7 +19,7 @@ One responsibility has one owner. A local extension must not register a competin
 
 `modules/` and `packages/` are loaded by path from `settings.json`. They are installed with pnpm; there are no npm lockfiles.
 
-`assets/Pi Notifier.app` is a small AppleScript applet that exists only to give notifications the Claude icon, since macOS takes the icon from the posting app. `notify-sound.ts` hands it a payload through `~/.cache/pi-notify.txt` because `open` cannot pass argv to an applet. It needs a one-time Allow in the macOS notification prompt on a new machine; `terminal-notifier` was replaced because it exits 0 and posts nothing on macOS 26+.
+`assets/Pi Notifier.app` is a small AppleScript applet that exists only to give notifications the Claude icon, since macOS takes the icon from the posting app. Its icon is generated from `assets/claude-icon.svg`, a full-bleed 1024px canvas because macOS 26+ applies its own squircle mask; an inset tile gets double-framed. After replacing `Contents/Resources/applet.icns`, re-sign the bundle, re-register it with `lsregister -f`, and `killall usernoted Dock`, otherwise the old icon stays cached. `notify-sound.ts` hands it a payload through `~/.cache/pi-notify.txt` because `open` cannot pass argv to an applet. It needs a one-time Allow in the macOS notification prompt on a new machine; `terminal-notifier` was replaced because it exits 0 and posts nothing on macOS 26+.
 
 `lib/usage-lifecycle.ts` intentionally duplicates `modules/pi-context/src/usage-lifecycle.ts`: the module must stay self-contained for publishing, and the local extensions must not import module internals.
 

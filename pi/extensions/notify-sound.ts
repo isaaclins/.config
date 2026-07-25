@@ -9,9 +9,10 @@ import { basename, dirname, join } from "node:path";
  * Claude icon, Glass sound, and a one-line TLDR of the reply.
  *
  * The icon comes from the app that posts the notification, so posting goes
- * through a tiny AppleScript applet bundle carrying claude.png as its icon
- * (~/.config/pi/assets/Pi Notifier.app). `open` cannot pass argv to an
- * applet, so the payload is handed over in a file the applet reads.
+ * through a tiny AppleScript applet bundle carrying the Claude mark as its
+ * icon (~/.config/pi/assets/Pi Notifier.app, generated from
+ * assets/claude-icon.svg). `open` cannot pass argv to an applet, so the
+ * payload is handed over in a file the applet reads.
  *
  * terminal-notifier (the previous mechanism) is dead on macOS 26+: it exits
  * 0 and posts nothing. If the applet ever fails the same way, we fall back
