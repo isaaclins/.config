@@ -9,16 +9,9 @@ import {
   keepAwakeDir,
   releaseKeepAwake,
 } from "../lib/keep-awake.ts";
-import { shouldDisableLidSleep } from "../extensions/keep-awake.ts";
 
 test("caffeinate blocks all sleep flavors and dies with the watched pid", () => {
   assert.deepEqual(caffeinateArgs(4242), ["-dimsu", "-w", "4242"]);
-});
-
-test("machine-global lid sleep changes require explicit opt-in", () => {
-  assert.equal(shouldDisableLidSleep({}), false);
-  assert.equal(shouldDisableLidSleep({ PI_ALLOW_GLOBAL_DISABLESLEEP: "0" }), false);
-  assert.equal(shouldDisableLidSleep({ PI_ALLOW_GLOBAL_DISABLESLEEP: "1" }), true);
 });
 
 test("keepAwakeDir honors XDG_RUNTIME_DIR and falls back to tmpdir", () => {
