@@ -24,7 +24,7 @@
     "pack-check": "npm pack --dry-run"
   },
   "peerDependencies": {
-    "@earendil-works/pi-coding-agent": "0.80.3"
+    "@earendil-works/pi-coding-agent": "^0.80.3"
   },
   "devDependencies": {
     "@types/node": "24.12.4",

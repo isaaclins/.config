@@ -21,6 +21,8 @@ One responsibility has one owner. A local extension must not register a competin
 
 `assets/Pi Notifier.app` is a small AppleScript applet that exists only to give notifications the Claude icon, since macOS takes the icon from the posting app. Its icon is generated from `assets/claude-icon.svg`, a full-bleed 1024px canvas because macOS 26+ applies its own squircle mask; an inset tile gets double-framed. After replacing `Contents/Resources/applet.icns`, re-sign the bundle, re-register it with `lsregister -f`, and `killall usernoted Dock`, otherwise the old icon stays cached. `notify-sound.ts` hands it a payload through `~/.cache/pi-notify.txt` because `open` cannot pass argv to an applet. It needs a one-time Allow in the macOS notification prompt on a new machine; `terminal-notifier` was replaced because it exits 0 and posts nothing on macOS 26+.
 
+`anthropic-usage.ts` publishes three status keys (`sub-usage-ok`, `-warn`, `-crit`) and sets exactly one at a time. That is not redundancy: `powerline.customItems` colors are static per item, so three keys are the only way to get a colour that follows the usage level.
+
 `lib/usage-lifecycle.ts` intentionally duplicates `modules/pi-context/src/usage-lifecycle.ts`: the module must stay self-contained for publishing, and the local extensions must not import module internals.
 
 ## Local extensions
@@ -46,7 +48,7 @@ One responsibility has one owner. A local extension must not register a competin
 
 ## Changing a module
 
-Modules are developed in place under `modules/`. Before a change lands:
+Modules are developed in place under `modules/` and declare `@earendil-works/pi-coding-agent` as a `^0.80.3` peer, which the installed 0.80.10 satisfies. Before a change lands:
 
 ```sh
 cd modules/<module> && pnpm test && pnpm typecheck && pnpm pack-check
