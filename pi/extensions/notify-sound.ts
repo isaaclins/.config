@@ -1,20 +1,27 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { execFile } from "node:child_process";
+import { writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
-import { basename } from "node:path";
-import { join } from "node:path";
+import { basename, dirname, join } from "node:path";
 
 /**
- * Native macOS notification when the agent finishes a prompt.
- * Uses a user-owned copy of terminal-notifier re-branded with the Claude
- * icon (~/.pi/agent/assets/Claude Notifier.app), because osascript can
- * neither set icons nor render clean text.
+ * Native macOS notification when the agent finishes a prompt:
+ * Claude icon, Glass sound, and a one-line TLDR of the reply.
+ *
+ * The icon comes from the app that posts the notification, so posting goes
+ * through a tiny AppleScript applet bundle carrying claude.png as its icon
+ * (~/.config/pi/assets/Pi Notifier.app). `open` cannot pass argv to an
+ * applet, so the payload is handed over in a file the applet reads.
+ *
+ * terminal-notifier (the previous mechanism) is dead on macOS 26+: it exits
+ * 0 and posts nothing. If the applet ever fails the same way, we fall back
+ * to plain osascript, which loses the icon but keeps the notification, and
+ * a failure of both is reported instead of swallowed.
  */
 
-const NOTIFIER = join(
-  homedir(),
-  ".pi/agent/assets/Claude Notifier.app/Contents/MacOS/terminal-notifier",
-);
+const APPLET = join(homedir(), ".config/pi/assets/Pi Notifier.app");
+const PAYLOAD = join(homedir(), ".cache/pi-notify.txt");
+const SOUND = "Glass";
 
 export default function (pi: ExtensionAPI) {
   let promptStartedAt = 0;
@@ -23,18 +30,61 @@ export default function (pi: ExtensionAPI) {
     promptStartedAt = Date.now();
   });
 
-  pi.on("agent_end", async (event) => {
-    const project = basename(process.cwd());
-    const duration = formatDuration(Date.now() - promptStartedAt);
-    const summary = cleanForToast(extractLastAssistantText(event.messages));
+  pi.on("agent_end", async (event, ctx) => {
+    const title = `pi · ${basename(process.cwd())}`;
+    const subtitle = `Finished in ${formatDuration(Date.now() - promptStartedAt)}`;
+    const message = cleanForToast(extractLastAssistantText(event.messages)) || "Done.";
 
-    execFile(NOTIFIER, [
-      "-title", `pi · ${project}`,
-      "-subtitle", `Finished in ${duration}`,
-      "-message", summary || "Done.",
-      "-sound", "Glass",
-    ]);
+    notify(title, subtitle, message, (error) => {
+      ctx?.ui?.notify(`Desktop notification failed: ${error}`, "warning");
+    });
   });
+}
+
+/** Post via the iconned applet, falling back to osascript, then reporting. */
+function notify(
+  title: string,
+  subtitle: string,
+  message: string,
+  onFailure: (error: string) => void,
+): void {
+  if (existsSync(APPLET)) {
+    try {
+      mkdirSync(dirname(PAYLOAD), { recursive: true });
+      writeFileSync(PAYLOAD, `${oneLine(title)}\n${oneLine(subtitle)}\n${oneLine(message)}\n`);
+      execFile("open", ["-a", APPLET], (error) => {
+        if (error) fallback(title, subtitle, message, onFailure);
+      });
+      return;
+    } catch (error) {
+      // Fall through to osascript rather than losing the notification.
+      void error;
+    }
+  }
+  fallback(title, subtitle, message, onFailure);
+}
+
+function fallback(
+  title: string,
+  subtitle: string,
+  message: string,
+  onFailure: (error: string) => void,
+): void {
+  const script =
+    `display notification ${quote(message)} with title ${quote(title)}` +
+    ` subtitle ${quote(subtitle)} sound name ${quote(SOUND)}`;
+  execFile("osascript", ["-e", script], (error) => {
+    if (error) onFailure(error.message);
+  });
+}
+
+function quote(value: string): string {
+  return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+}
+
+/** The applet payload is line-delimited, so fields must stay single-line. */
+function oneLine(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
 }
 
 function extractLastAssistantText(messages: unknown[]): string {

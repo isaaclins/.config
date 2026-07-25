@@ -1,50 +1,61 @@
 # Pi configuration
 
-This directory is the personal deployment of Pi. Reusable behavior is developed and released from [`isaaclins/pi-terminal-kit`](https://github.com/isaaclins/pi-terminal-kit); this directory contains pinned package selections, personal settings, and intentionally local extensions.
+This directory is the personal deployment of Pi: pinned package selections, personal settings, locally developed modules, and intentionally local extensions. A fresh `git clone` of the config repo plus `pnpm install` in each module is enough to get a working harness; the prebuilt computer-use bridges are tracked, so nothing has to be rebuilt.
 
 ## Ownership
 
+One responsibility has one owner. A local extension must not register a competing tool, command, lifecycle hook, store, or state machine for a responsibility a module already owns.
+
 | Responsibility | Owner | Deployment |
 | --- | --- | --- |
-| Visible tmux child sessions, identity, depth, reports, accounting | `@isaaclins/pi-codrive` | Pi package |
-| Structured global/project memory | `@isaaclins/pi-memory` | Pi package |
-| Context usage, handover, and compaction lifecycle | `@isaaclins/pi-context` | Pi package |
-| Fish command bridge | `@isaaclins/pi-fish-bridge` | Pi package |
-| Arcoiris theme | `@isaaclins/pi-arcoiris-refined` | Pi package |
-| Personal notifications, usage display, prompt shortcuts, and macOS session behavior | files under `extensions/` | Local only |
+| Visible tmux child sessions, identity, depth, reports, accounting | `@isaaclins/pi-codrive` | local module (`modules/`), published as 0.1.1 |
+| Structured global/project memory | `@isaaclins/pi-memory` | local module (`modules/`), unpublished |
+| Context usage, handover, and compaction lifecycle | `@isaaclins/pi-context` | local module (`modules/`), unpublished |
+| Excalidraw drawing tools | `@isaaclins/pi-excalidraw` | local module (`modules/`), unpublished, not yet tracked in git |
+| Desktop/browser control | `pi-computer-use-codex-parity` | local package (`packages/`), unpublished |
+| Fish command bridge | `@isaaclins/pi-fish-bridge` | npm package |
+| Arcoiris theme | `@isaaclins/pi-arcoiris-refined` | npm package |
+| Notifications, subscription usage display, prompt stash, session reset, macOS keep-awake | files under `extensions/` | local only |
 
-One responsibility has one owner. A local extension must not register a competing tool, command, lifecycle hook, store, or state machine for a packaged responsibility.
+`modules/` and `packages/` are loaded by path from `settings.json`. They are installed with pnpm; there are no npm lockfiles.
+
+`assets/Pi Notifier.app` is a small AppleScript applet that exists only to give notifications the Claude icon, since macOS takes the icon from the posting app. `notify-sound.ts` hands it a payload through `~/.cache/pi-notify.txt` because `open` cannot pass argv to an applet. It needs a one-time Allow in the macOS notification prompt on a new machine; `terminal-notifier` was replaced because it exits 0 and posts nothing on macOS 26+.
+
+`lib/usage-lifecycle.ts` intentionally duplicates `modules/pi-context/src/usage-lifecycle.ts`: the module must stay self-contained for publishing, and the local extensions must not import module internals.
+
+## Local extensions
+
+| File | Surface |
+| --- | --- |
+| `anthropic-usage.ts` | powerline usage segment plus `/usage` |
+| `clear-session.ts` | `/clear` |
+| `keep-awake.ts` | automatic `caffeinate` plus `/clam` for lid-closed keep-awake |
+| `notify-sound.ts` | desktop notification when a prompt finishes (Claude icon, Glass sound, one-line TLDR) |
+| `prompt-stash.ts` | `ctrl+s` stash/restore/swap |
+| `repo-memory.ts` | deterministic zero-LLM repo map injection |
+| `ui-polish.ts` | working indicator plus the stash widget |
 
 ## Security defaults
 
 - Unknown projects require an explicit trust decision.
 - Repository content is task data, never a trusted system instruction.
 - Delegation identity and depth are independent of report credentials.
-- Machine-global lid-sleep changes require `PI_ALLOW_GLOBAL_DISABLESLEEP=1`.
+- Machine-global lid-sleep changes happen only through an explicit `/clam` toggle, never at startup, and are restored when the last claiming session disarms or exits.
 - Infrastructure memory is retrieved only when relevant.
-- Published packages are pinned in `settings.json`; upgrades are explicit.
+- npm-published packages are pinned in `settings.json`; upgrades are explicit.
 
-## Promotion gate
+## Changing a module
 
-A reusable module may enter `settings.json` only after all of the following pass in `~/Projects/pi-terminal-kit`:
+Modules are developed in place under `modules/`. Before a change lands:
 
 ```sh
-pnpm format:check
-pnpm typecheck
-pnpm test
-pnpm pack:check
+cd modules/<module> && pnpm test && pnpm typecheck && pnpm pack-check
 ```
 
-The package must also have a threat model, migration notes, bounded storage and output, lifecycle cleanup, observable failures, and a black-box compatibility test against the supported Pi version. Experimental extensions remain disabled.
+A module may be added to `settings.json` only with a threat model, bounded storage and output, lifecycle cleanup, observable failures, and a test against the supported Pi version. Experimental extensions stay disabled until they pass.
 
-## Upgrade procedure
+## Publishing a module
 
-1. Update and test the package in `~/Projects/pi-terminal-kit`.
-2. Bump its version according to Semantic Versioning.
-3. Push and wait for the macOS/Linux CI matrix.
-4. Publish through the repository's trusted-publishing workflow.
-5. Verify the registry tarball and provenance.
-6. Update the exact package version in `settings.json`.
-7. Remove the replaced local extension and run `bash bootstrap/doctor.sh` plus a real Pi smoke session.
+Only `@isaaclins/pi-codrive` and `@isaaclins/pi-fish-bridge` are on npm today. To publish another one: bump its version per Semantic Versioning, publish through trusted publishing, verify the registry tarball and provenance, then swap its `settings.json` entry from the local path to the pinned version.
 
 Do not edit generated Fish shims or Pi's package cache directly.

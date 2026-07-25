@@ -4,73 +4,53 @@
 <dict>
 	<key>files</key>
 	<dict>
-		<key>Resources/Terminal.icns</key>
+		<key>Resources/Scripts/main.scpt</key>
 		<data>
-		eCyMIPKhv1S2uMawWtntGmR76Sw=
+		3w+NAZoBo4c4I4vplL61jMu5SpY=
 		</data>
-		<key>Resources/en.lproj/Credits.rtf</key>
-		<dict>
-			<key>hash</key>
-			<data>
-			YKJIFIsxneJuNkJNJQIcJIjiPOg=
-			</data>
-			<key>optional</key>
-			<true/>
-		</dict>
-		<key>Resources/en.lproj/InfoPlist.strings</key>
-		<dict>
-			<key>hash</key>
-			<data>
-			MiLKDDnrUKr4EmuvhS5VQwxHGK8=
-			</data>
-			<key>optional</key>
-			<true/>
-		</dict>
-		<key>Resources/en.lproj/MainMenu.nib</key>
-		<dict>
-			<key>hash</key>
-			<data>
-			ks63ht6nCtcvf9VjUbrnRAck+t8=
-			</data>
-			<key>optional</key>
-			<true/>
-		</dict>
+		<key>Resources/applet.icns</key>
+		<data>
+		vjdEn9d60Yo4VjeP2A1kKiZuJso=
+		</data>
+		<key>Resources/applet.rsrc</key>
+		<data>
+		ar5xmDs9mPpaINVXiVlVqUCB8ao=
+		</data>
 	</dict>
 	<key>files2</key>
 	<dict>
-		<key>Resources/Terminal.icns</key>
+		<key>Resources/Scripts/main.scpt</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			3w+NAZoBo4c4I4vplL61jMu5SpY=
+			</data>
 			<key>hash2</key>
 			<data>
-			fQ/7wpuC1H7GOWL2DW3LjAZZxilZoZ1lAZEAbg2EzCc=
+			GGdvXbwmLcNb4X1PXlg6Dqs8Stbwk9fODY4okd0JZe8=
 			</data>
 		</dict>
-		<key>Resources/en.lproj/Credits.rtf</key>
+		<key>Resources/applet.icns</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			vjdEn9d60Yo4VjeP2A1kKiZuJso=
+			</data>
 			<key>hash2</key>
 			<data>
-			tDhv4c72XNkebI7MBl0RcIkIP5G3ytvww+Xq4g6LlkA=
+			09abfG0cBWWZ1yZBWKsginsmFMBTbC2jTF++lKaIWBw=
 			</data>
-			<key>optional</key>
-			<true/>
 		</dict>
-		<key>Resources/en.lproj/InfoPlist.strings</key>
+		<key>Resources/applet.rsrc</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			ar5xmDs9mPpaINVXiVlVqUCB8ao=
+			</data>
 			<key>hash2</key>
 			<data>
-			Oc8u4Ht7Mz58F50L9NeYpbcq9qTlhPUeZCcDu/pPyCg=
+			NV2dNLwgykV7aWfTBywUILBA9Lidl7F51PrkQw77SbM=
 			</data>
-			<key>optional</key>
-			<true/>
-		</dict>
-		<key>Resources/en.lproj/MainMenu.nib</key>
-		<dict>
-			<key>hash2</key>
-			<data>
-			T28xZ3pEIF+z1AwdptRqPpSBbjWA+HVFDrMmTQ6sosQ=
-			</data>
-			<key>optional</key>
-			<true/>
 		</dict>
 	</dict>
 	<key>rules</key>
