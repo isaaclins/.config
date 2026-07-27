@@ -1,6 +1,6 @@
 {
   "collapseChangelog": true,
-  "defaultModel": "claude-opus-5",
+  "defaultModel": "claude-fable-5",
   "defaultProjectTrust": "always",
   "defaultProvider": "anthropic",
   "defaultThinkingLevel": "high",
@@ -23,6 +23,7 @@
     "~/.config/pi/modules/pi-context",
     "~/.config/pi/modules/pi-memory",
     "~/.config/pi/modules/pi-codrive",
+    "~/.config/pi/modules/pi-excalidraw",
     "~/.config/pi/packages/pi-computer-use-codex-parity"
   ],
   "powerline": {
