@@ -27,7 +27,23 @@
     "~/.config/pi/packages/pi-computer-use-codex-parity"
   ],
   "powerline": {
+    "disabledSegments": [
+      "thinking"
+    ],
+    "layout": {
+      "left": [
+        "model",
+        "custom:effort",
+        "path",
+        "git"
+      ]
+    },
     "customItems": [
+      {
+        "color": "accent",
+        "id": "effort",
+        "position": "left"
+      },
       {
         "color": "success",
         "id": "sub-usage-ok",
