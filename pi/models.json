@@ -1,6 +1,19 @@
 {
   "providers": {
     "anthropic": {
+      "modelOverrides": {
+        "claude-fable-5": {
+          "thinkingLevelMap": {
+            "off": null,
+            "minimal": null,
+            "low": "low",
+            "medium": "medium",
+            "high": "high",
+            "xhigh": "xhigh",
+            "max": "max"
+          }
+        }
+      },
       "models": [
         {
           "id": "claude-opus-5",
@@ -39,6 +52,15 @@
           "id": "gpt-5.6-sol",
           "name": "GPT-5.6 Sol (Codex subscription)",
           "reasoning": true,
+          "thinkingLevelMap": {
+            "off": null,
+            "minimal": "low",
+            "low": "medium",
+            "medium": "high",
+            "high": "xhigh",
+            "xhigh": "max",
+            "max": "ultra"
+          },
           "input": ["text", "image"],
           "contextWindow": 1050000,
           "maxTokens": 128000
@@ -78,6 +100,15 @@
           "id": "gpt-5.6-sol",
           "name": "GPT-5.6 Sol (OpenAI API)",
           "reasoning": true,
+          "thinkingLevelMap": {
+            "off": null,
+            "minimal": "low",
+            "low": "medium",
+            "medium": "high",
+            "high": "xhigh",
+            "xhigh": "max",
+            "max": "ultra"
+          },
           "input": ["text", "image"],
           "contextWindow": 1050000,
           "maxTokens": 128000

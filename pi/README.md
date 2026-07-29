@@ -32,11 +32,31 @@ One responsibility has one owner. A local extension must not register a competin
 | `anthropic-usage.ts` | powerline usage segment plus `/usage` |
 | `clear-session.ts` | `/clear` |
 | `keep-awake.ts` | automatic `caffeinate` plus `/clam` for lid-closed keep-awake |
+| `model-effort.ts` | model-aware `/effort`, Shift+Tab labels, and switch clamping |
 | `notify-sound.ts` | desktop notification when a prompt finishes (Claude icon, Glass sound, one-line TLDR) |
 | `prompt-stash.ts` | `ctrl+s` stash/restore/swap |
 | `repo-memory.ts` | deterministic zero-LLM repo map injection |
 | `tool-audit.ts` | tool-call audit tracker plus `/toolaudit` |
 | `ui-polish.ts` | working indicator plus the stash widget |
+
+## Model-aware reasoning effort
+
+`models.json` defines each model's supported effort set through Pi's documented
+`thinkingLevelMap`. GPT-5.6 Sol exposes `low`, `medium`, `high`, `xhigh`, `max`,
+and `ultra`; Claude Fable 5 exposes the same set without `ultra`. Pi currently
+has six usable internal slots after `off` is hidden, so Sol maps those slots to
+the six provider effort names. Fable hides both `off` and `minimal` and maps its
+remaining slots directly.
+
+Use `/effort` to show the current value and the model's available set, or
+`/effort <level>` to select one. Pi's built-in Shift+Tab action still performs
+the cycle; `thinking_level_select` keeps the displayed semantic effort in sync.
+When the model changes, `model-effort.ts` preserves the semantic effort where
+possible and clamps it to the nearest supported value, such as `ultra` to
+`max` when switching to Fable.
+
+The mapping, Shift+Tab order, command behavior, and model-switch clamping are
+covered by `tests/model-effort.test.ts`.
 
 ## Tool-call audit tracker
 
