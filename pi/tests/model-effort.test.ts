@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
+import { stripVTControlCharacters } from "node:util";
 import modelEffortExtension from "../extensions/model-effort.ts";
 import {
   availableThinkingLevels,
   cycleEffort,
+  effortStatusLabel,
   levelForModelSwitch,
   supportedEfforts,
   type EffortModel,
@@ -108,6 +110,22 @@ test("model switches preserve semantic effort and clamp unsupported ultra to max
   });
 });
 
+test("the highest model-specific effort uses the ultracode label", () => {
+  const { fable, sol } = configuredModels();
+  assert.deepEqual(effortStatusLabel(sol, "ultra"), {
+    label: "ultracode",
+    isMaximum: true,
+  });
+  assert.deepEqual(effortStatusLabel(fable, "max"), {
+    label: "ultracode",
+    isMaximum: true,
+  });
+  assert.deepEqual(effortStatusLabel(sol, "max"), {
+    label: "effort:max",
+    isMaximum: false,
+  });
+});
+
 test("/effort and thinking_level_select use model-aware names", async () => {
   const { fable, sol } = configuredModels();
   const commands = new Map<string, any>();
@@ -148,7 +166,7 @@ test("/effort and thinking_level_select use model-aware names", async () => {
   await handlers.get("session_start")?.[0]({}, context(sol));
   await commands.get("effort").handler("ultra", context(sol));
   assert.deepEqual(setLevels, ["max"]);
-  assert.equal(statuses.at(-1), "effort:ultra");
+  assert.equal(stripVTControlCharacters(statuses.at(-1) ?? ""), "ultracode");
 
   currentLevel = "xhigh";
   await handlers.get("thinking_level_select")?.[0]
@@ -196,6 +214,6 @@ test("model_select clamps a remembered ultra effort to Fable max", async () => {
     );
 
   assert.equal(currentLevel, "max");
-  assert.equal(statuses.at(-1), "effort:max");
+  assert.equal(stripVTControlCharacters(statuses.at(-1) ?? ""), "ultracode");
   assert.match(notifications.at(-1) ?? "", /ultra to max/);
 });

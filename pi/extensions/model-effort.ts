@@ -5,6 +5,7 @@ import type {
 import {
   clampEffort,
   effortForLevel,
+  effortStatusLabel,
   levelForEffort,
   modelKey,
   supportedEfforts,
@@ -12,10 +13,50 @@ import {
   type PiThinkingLevel,
 } from "../lib/model-effort.ts";
 
-function setEffortStatus(ctx: ExtensionContext, effort: string | undefined): void {
+const RAINBOW_COLORS = [
+  "#b281d6",
+  "#d787af",
+  "#febc38",
+  "#e4c00f",
+  "#89d281",
+  "#00afaf",
+  "#178fb9",
+] as const;
+
+function ansiColor(hex: string): string {
+  const value = hex.slice(1);
+  const red = Number.parseInt(value.slice(0, 2), 16);
+  const green = Number.parseInt(value.slice(2, 4), 16);
+  const blue = Number.parseInt(value.slice(4, 6), 16);
+  return `\x1b[38;2;${red};${green};${blue}m`;
+}
+
+function rainbow(text: string): string {
+  let result = "";
+  let colorIndex = 0;
+  for (const character of text) {
+    result += `${ansiColor(RAINBOW_COLORS[colorIndex % RAINBOW_COLORS.length])}${character}`;
+    colorIndex += 1;
+  }
+  return `${result}\x1b[0m`;
+}
+
+function setEffortStatus(
+  ctx: ExtensionContext,
+  model: EffortModel | undefined,
+  effort: string | undefined,
+): void {
+  if (!model || !effort) {
+    ctx.ui.setStatus("effort", undefined);
+    return;
+  }
+
+  const status = effortStatusLabel(model, effort);
   ctx.ui.setStatus(
     "effort",
-    effort ? ctx.ui.theme.fg("accent", `effort:${effort}`) : undefined,
+    status.isMaximum
+      ? rainbow(status.label)
+      : ctx.ui.theme.fg("accent", status.label),
   );
 }
 
@@ -62,7 +103,7 @@ export default function modelEffort(pi: ExtensionAPI): void {
       activeModel = model;
       selectedEffort = requested;
       pi.setThinkingLevel(level);
-      setEffortStatus(ctx, requested);
+      setEffortStatus(ctx, model, requested);
     },
   });
 
@@ -71,7 +112,7 @@ export default function modelEffort(pi: ExtensionAPI): void {
     selectedEffort = activeModel
       ? effortForLevel(activeModel, pi.getThinkingLevel())
       : undefined;
-    setEffortStatus(ctx, selectedEffort);
+    setEffortStatus(ctx, activeModel, selectedEffort);
   });
 
   pi.on("thinking_level_select", async (event, ctx) => {
@@ -87,7 +128,7 @@ export default function modelEffort(pi: ExtensionAPI): void {
       eventModel,
       event.level as PiThinkingLevel,
     );
-    setEffortStatus(ctx, selectedEffort);
+    setEffortStatus(ctx, eventModel, selectedEffort);
   });
 
   pi.on("model_select", async (event, ctx) => {
@@ -104,7 +145,7 @@ export default function modelEffort(pi: ExtensionAPI): void {
     activeModel = nextModel;
     if (!previousEffort) {
       selectedEffort = effortForLevel(nextModel, pi.getThinkingLevel());
-      setEffortStatus(ctx, selectedEffort);
+      setEffortStatus(ctx, nextModel, selectedEffort);
       return;
     }
 
@@ -114,7 +155,7 @@ export default function modelEffort(pi: ExtensionAPI): void {
     if (nextLevel && pi.getThinkingLevel() !== nextLevel) {
       pi.setThinkingLevel(nextLevel);
     }
-    setEffortStatus(ctx, nextEffort);
+    setEffortStatus(ctx, nextModel, nextEffort);
 
     if (nextEffort !== previousEffort && event.source !== "restore") {
       ctx.ui.notify(

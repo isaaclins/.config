@@ -68,6 +68,18 @@ export function supportedEfforts(model: EffortModel): string[] {
     .filter((effort, index, all) => all.indexOf(effort) === index);
 }
 
+export function effortStatusLabel(
+  model: EffortModel,
+  effort: string,
+): { label: string; isMaximum: boolean } {
+  const efforts = supportedEfforts(model);
+  const isMaximum = effort === efforts.at(-1);
+  return {
+    label: isMaximum ? "ultracode" : `effort:${effort}`,
+    isMaximum,
+  };
+}
+
 /** Uses Pi's upward-first, then downward clamping rule on semantic effort names. */
 export function clampEffort(model: EffortModel, requested: string): string {
   const available = supportedEfforts(model);
