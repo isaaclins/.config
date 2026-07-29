@@ -35,7 +35,43 @@ One responsibility has one owner. A local extension must not register a competin
 | `notify-sound.ts` | desktop notification when a prompt finishes (Claude icon, Glass sound, one-line TLDR) |
 | `prompt-stash.ts` | `ctrl+s` stash/restore/swap |
 | `repo-memory.ts` | deterministic zero-LLM repo map injection |
+| `tool-audit.ts` | tool-call audit tracker plus `/toolaudit` |
 | `ui-polish.ts` | working indicator plus the stash widget |
+
+## Tool-call audit tracker
+
+`tool-audit.ts` logs every tool call as one JSONL line so it is clear how
+many calls happen per directory and per agent, and what each call did. Args
+and start time are captured on `tool_execution_start`, then matched by
+`toolCallId` on `tool_execution_end` (the end event carries no args).
+
+Each record holds the timestamp, session id, a short agent id (first 8 chars
+of the session id), the cwd, the tool name, redacted and truncated args
+(~2KB), the outcome (`ok`/`error`), a truncated result or error preview
+(~2KB), and the duration in ms. Values whose keys match
+`/token|secret|password|api[_-]?key/i` are redacted before anything is
+written.
+
+Logs live outside the repo at `~/.local/share/pi/tool-audit/YYYY-MM-DD.jsonl`
+(one file per day), so they are never committed. A failed write warns once at
+most and never breaks the session.
+
+Reporting has two surfaces:
+
+- `/toolaudit` in the TUI: summary of counts per directory and per agent,
+  error counts and rate, and top tools. `/toolaudit errors` shows recent
+  failures with args and response previews; `/toolaudit <agent-id>` shows one
+  agent's calls in detail.
+- A dependency-free CLI for use outside the TUI:
+
+  ```sh
+  node --experimental-strip-types ~/.config/pi/lib/tool-audit-cli.ts
+  node --experimental-strip-types ~/.config/pi/lib/tool-audit-cli.ts errors
+  node --experimental-strip-types ~/.config/pi/lib/tool-audit-cli.ts <agent-id>
+  ```
+
+Core logic lives in `lib/tool-audit.ts` (record shaping, redaction,
+truncation, aggregation, formatting) and is covered by `tests/tool-audit.test.ts`.
 
 ## Security defaults
 
