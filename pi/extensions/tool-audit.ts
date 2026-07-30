@@ -4,6 +4,8 @@ import {
   auditDir,
   buildRecord,
   formatAgent,
+  formatCall,
+  formatCalls,
   formatErrors,
   formatSummary,
   readAllRecords,
@@ -23,6 +25,8 @@ import {
  * time are captured on tool_execution_start and matched back by toolCallId.
  *
  * Reporting: /toolaudit (summary), /toolaudit errors (recent failures),
+ * /toolaudit calls (one line per call), /toolaudit last <n> (n most recent),
+ * /toolaudit show <call-id> (full detail with complete args and result),
  * /toolaudit <agent-id> (that agent's calls). The same views are available
  * outside the TUI via lib/tool-audit-cli.ts.
  *
@@ -61,6 +65,7 @@ export default function (pi: ExtensionAPI) {
 
     const record = buildRecord({
       sessionId: resolveSessionId(ctx),
+      toolCallId: event.toolCallId,
       cwd: ctx.cwd,
       tool: event.toolName,
       args: started?.args,
@@ -80,20 +85,47 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.registerCommand("toolaudit", {
-    description: "Tool-call audit: summary, `errors`, or an <agent-id> for detail",
+    description: "Tool-call audit: summary, `errors`, `calls`, `last <n>`, `show <call-id>`, or an <agent-id>",
+    getArgumentCompletions(prefix) {
+      const options = ["calls", "last", "show", "errors"];
+      const matches = options
+        .filter((option) => option.startsWith(prefix.toLowerCase()))
+        .map((option) => ({ value: option, label: option }));
+      return matches.length > 0 ? matches : null;
+    },
     handler: async (args, ctx) => {
       const records = readAllRecords(dir);
-      const query = args.trim();
+      const parts = args.trim().split(/\s+/).filter(Boolean);
+      const first = parts[0] ?? "";
+      const cmd = first.toLowerCase();
 
-      if (!query) {
+      if (!first) {
         ctx.ui.notify(formatSummary(aggregate(records)), "info");
         return;
       }
-      if (query === "errors") {
+      if (cmd === "errors") {
         ctx.ui.notify(formatErrors(records), "info");
         return;
       }
-      ctx.ui.notify(formatAgent(records, query), "info");
+      if (cmd === "calls") {
+        ctx.ui.notify(formatCalls(records), "info");
+        return;
+      }
+      if (cmd === "last") {
+        const n = Number.parseInt(parts[1] ?? "", 10);
+        ctx.ui.notify(formatCalls(records, Number.isFinite(n) && n > 0 ? n : 30), "info");
+        return;
+      }
+      if (cmd === "show") {
+        const id = parts[1] ?? "";
+        if (!id) {
+          ctx.ui.notify("tool-audit: usage: /toolaudit show <call-id>", "warning");
+          return;
+        }
+        ctx.ui.notify(formatCall(records, id), "info");
+        return;
+      }
+      ctx.ui.notify(formatAgent(records, first), "info");
     },
   });
 }

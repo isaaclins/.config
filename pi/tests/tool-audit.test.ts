@@ -5,16 +5,23 @@ import { join } from "node:path";
 import test from "node:test";
 import {
   MAX_ARGS_BYTES,
+  MAX_FULL_BYTES,
+  MISSING_CALL_ID,
   REDACTED,
   aggregate,
   buildRecord,
   dailyFilePath,
   formatAgent,
+  formatCall,
+  formatCalls,
+  fullArgs,
+  fullResult,
   parseJsonl,
   readAllRecords,
   redactSecrets,
   resultPreview,
   shortAgentId,
+  shortCallId,
   truncateBytes,
   writeRecord,
   type AuditRecord,
@@ -61,6 +68,83 @@ test("shortAgentId takes the first 8 chars and falls back to a placeholder", () 
   assert.equal(shortAgentId("0123456789"), "01234567");
   assert.equal(shortAgentId(""), "unknown");
   assert.equal(shortAgentId("  "), "unknown");
+});
+
+test("shortCallId hashes to a stable 8-char id and distinguishes shared prefixes", () => {
+  const a = shortCallId("call_abcdef_0001");
+  const b = shortCallId("call_abcdef_0002");
+  assert.equal(a.length, 8);
+  assert.equal(a, shortCallId("call_abcdef_0001"));
+  assert.notEqual(a, b);
+  assert.equal(shortCallId(""), "");
+  assert.equal(shortCallId("  "), "");
+});
+
+test("buildRecord derives callId from the toolCallId and omits it when absent", () => {
+  const withId = buildRecord({
+    sessionId: "s",
+    toolCallId: "call_xyz",
+    cwd: "/x",
+    tool: "bash",
+    args: { command: "ls" },
+    isError: false,
+    endedAt: 0,
+  });
+  assert.equal(withId.callId, shortCallId("call_xyz"));
+
+  const withoutId = buildRecord({
+    sessionId: "s",
+    cwd: "/x",
+    tool: "bash",
+    args: {},
+    isError: false,
+    endedAt: 0,
+  });
+  assert.equal(withoutId.callId, undefined);
+});
+
+test("buildRecord stores full args and result, redacted, capped at MAX_FULL_BYTES", () => {
+  const bigArg = "a".repeat(MAX_ARGS_BYTES * 4);
+  const bigResult = "r".repeat(MAX_FULL_BYTES + 5000);
+  const record = buildRecord({
+    sessionId: "s",
+    toolCallId: "c",
+    cwd: "/x",
+    tool: "bash",
+    args: { command: bigArg, token: "sk-secret" },
+    result: bigResult,
+    isError: false,
+    endedAt: 0,
+  });
+
+  // Compact fields stay tiny, full fields carry much more.
+  assert.ok(Buffer.byteLength(record.args, "utf8") <= MAX_ARGS_BYTES + 32);
+  assert.ok(record.argsFull !== undefined);
+  assert.ok(Buffer.byteLength(record.argsFull!, "utf8") > MAX_ARGS_BYTES);
+  assert.ok(!fullArgs(record).includes("sk-secret"));
+  assert.ok(fullArgs(record).includes(REDACTED));
+
+  // Full result is capped, not unbounded.
+  assert.ok(record.resultFull !== undefined);
+  assert.ok(Buffer.byteLength(fullResult(record), "utf8") <= MAX_FULL_BYTES + 32);
+  assert.ok(fullResult(record).endsWith("B]"));
+});
+
+test("buildRecord omits full fields when they equal the compact fields", () => {
+  const record = buildRecord({
+    sessionId: "s",
+    toolCallId: "c",
+    cwd: "/x",
+    tool: "read",
+    args: { path: "a.txt" },
+    result: "short result",
+    isError: false,
+    endedAt: 0,
+  });
+  assert.equal(record.argsFull, undefined);
+  assert.equal(record.resultFull, undefined);
+  assert.equal(fullArgs(record), record.args);
+  assert.equal(fullResult(record), record.preview);
 });
 
 test("redactSecrets replaces values whose keys look sensitive, at any depth", () => {
@@ -171,6 +255,66 @@ test("writeRecord + readAllRecords round-trips JSONL across the daily file, skip
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("formatCalls lists newest first with callId and honors the limit", () => {
+  const records: AuditRecord[] = [
+    rec({ callId: "aaaaaaaa", tool: "bash", ts: new Date(1).toISOString() }),
+    rec({ callId: "bbbbbbbb", tool: "read", ts: new Date(2).toISOString() }),
+    rec({ callId: "cccccccc", tool: "write", ts: new Date(3).toISOString() }),
+  ];
+  const out = formatCalls(records, 2);
+  const lines = out.split("\n");
+  // Header + blank + 2 rows.
+  assert.ok(lines[0].includes("showing 2"));
+  assert.ok(lines[2].includes("cccccccc"));
+  assert.ok(lines[3].includes("bbbbbbbb"));
+  assert.ok(!out.includes("aaaaaaaa"));
+  assert.equal(formatCalls([]), "tool-audit: no records yet");
+});
+
+test("formatCalls shows a placeholder for old records without a callId", () => {
+  const out = formatCalls([rec({ tool: "bash" })]);
+  assert.ok(out.includes(MISSING_CALL_ID));
+});
+
+test("formatCall prints full detail with pretty args and complete result", () => {
+  const records: AuditRecord[] = [
+    rec({
+      callId: "deadbeef",
+      tool: "bash",
+      args: JSON.stringify({ command: "echo hi" }),
+      argsFull: JSON.stringify({ command: "echo hi", note: "full" }),
+      preview: "hi",
+      resultFull: "hi there in full",
+      durationMs: 12,
+    }),
+  ];
+  const out = formatCall(records, "deadbeef");
+  assert.ok(out.includes("tool-audit call deadbeef"));
+  assert.ok(out.includes("duration:  12ms"));
+  // Pretty-printed JSON from the full args, not the compact one.
+  assert.ok(out.includes('"note": "full"'));
+  assert.ok(out.includes("hi there in full"));
+  assert.equal(formatCall(records, "nope1234"), "tool-audit: no call nope1234");
+});
+
+test("formatCall falls back to compact fields for old records", () => {
+  const records: AuditRecord[] = [
+    rec({ callId: "feedface", args: '{"path":"a.txt"}', preview: "ok" }),
+  ];
+  const out = formatCall(records, "feedface");
+  assert.ok(out.includes('"path": "a.txt"'));
+  assert.ok(out.includes("result:"));
+});
+
+test("old records without callId still parse and read back", () => {
+  const legacy = parseJsonl(
+    '{"ts":"1970-01-01T00:00:00.000Z","sessionId":"s","agentId":"aaa","cwd":"/p","tool":"bash","args":"{}","outcome":"ok","preview":""}',
+  );
+  assert.equal(legacy.length, 1);
+  assert.equal(legacy[0].callId, undefined);
+  assert.equal(fullArgs(legacy[0]), "{}");
 });
 
 function rec(partial: Partial<AuditRecord>): AuditRecord {

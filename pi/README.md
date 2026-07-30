@@ -12,6 +12,7 @@ One responsibility has one owner. A local extension must not register a competin
 | Structured global/project memory | `@isaaclins/pi-memory` | local module (`modules/`), unpublished |
 | Context usage, handover, and compaction lifecycle | `@isaaclins/pi-context` | local module (`modules/`), unpublished |
 | Excalidraw drawing tools | `@isaaclins/pi-excalidraw` | local module (`modules/`), unpublished, not yet tracked in git |
+| Image preview rendering in tmux via Kitty graphics | `pi-tmux-image-preview` | local module (`modules/`), unpublished |
 | Desktop/browser control | `pi-computer-use-codex-parity` | local package (`packages/`), unpublished |
 | Fish command bridge | `@isaaclins/pi-fish-bridge` | npm package |
 | Arcoiris theme | `@isaaclins/pi-arcoiris-refined` | npm package |
@@ -34,7 +35,7 @@ One responsibility has one owner. A local extension must not register a competin
 | `keep-awake.ts` | automatic `caffeinate` plus `/clam` for lid-closed keep-awake |
 | `model-effort.ts` | model-aware `/effort`, Shift+Tab labels, and switch clamping |
 | `notify-sound.ts` | desktop notification when a prompt finishes (Claude icon, Glass sound, one-line TLDR) |
-| `prompt-stash.ts` | `ctrl+s` stash/restore/swap |
+| `prompt-stash.ts` | `ctrl+s` stash/restore/swap, held across `/reload` |
 | `repo-memory.ts` | deterministic zero-LLM repo map injection |
 | `tool-audit.ts` | tool-call audit tracker plus `/toolaudit` |
 | `ui-polish.ts` | working indicator plus the stash widget |
@@ -66,11 +67,16 @@ and start time are captured on `tool_execution_start`, then matched by
 `toolCallId` on `tool_execution_end` (the end event carries no args).
 
 Each record holds the timestamp, session id, a short agent id (first 8 chars
-of the session id), the cwd, the tool name, redacted and truncated args
-(~2KB), the outcome (`ok`/`error`), a truncated result or error preview
-(~2KB), and the duration in ms. Values whose keys match
+of the session id), a short stable call id (a hash of Pi's `toolCallId`), the
+cwd, the tool name, redacted and truncated args (~2KB), the outcome
+(`ok`/`error`), a truncated result or error preview (~2KB), and the duration
+in ms. For per-call drill-down it also stores the full redacted args
+(`argsFull`) and full result text (`resultFull`), each capped at 256KB so a
+context-dumping tool cannot blow up the log; a full field is omitted when it
+equals its compact counterpart. Values whose keys match
 `/token|secret|password|api[_-]?key/i` are redacted before anything is
-written.
+written. Old records that predate the call id parse fine and show a
+`--------` placeholder in listings.
 
 Logs live outside the repo at `~/.local/share/pi/tool-audit/YYYY-MM-DD.jsonl`
 (one file per day), so they are never committed. A failed write warns once at
@@ -79,14 +85,24 @@ most and never breaks the session.
 Reporting has two surfaces:
 
 - `/toolaudit` in the TUI: summary of counts per directory and per agent,
-  error counts and rate, and top tools. `/toolaudit errors` shows recent
-  failures with args and response previews; `/toolaudit <agent-id>` shows one
-  agent's calls in detail.
+  error counts and rate, and top tools. Other views:
+  - `/toolaudit errors` recent failures with args and response previews.
+  - `/toolaudit calls` one line per call, newest first (default 30): call id,
+    time, agent id, tool, outcome, duration, and a truncated args summary.
+  - `/toolaudit last <n>` the same listing limited to the n most recent calls.
+  - `/toolaudit show <call-id>` full detail for one call: every stored field,
+    the complete redacted args pretty-printed as JSON, and the complete result
+    text.
+  - `/toolaudit <agent-id>` that agent's calls in detail.
+  Argument completion suggests `calls`, `last`, `show`, and `errors`.
 - A dependency-free CLI for use outside the TUI:
 
   ```sh
   node --experimental-strip-types ~/.config/pi/lib/tool-audit-cli.ts
   node --experimental-strip-types ~/.config/pi/lib/tool-audit-cli.ts errors
+  node --experimental-strip-types ~/.config/pi/lib/tool-audit-cli.ts calls
+  node --experimental-strip-types ~/.config/pi/lib/tool-audit-cli.ts last 10
+  node --experimental-strip-types ~/.config/pi/lib/tool-audit-cli.ts show <call-id>
   node --experimental-strip-types ~/.config/pi/lib/tool-audit-cli.ts <agent-id>
   ```
 

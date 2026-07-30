@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { appendFileSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -15,11 +16,19 @@ import { join } from "node:path";
 export const SENSITIVE_KEY_PATTERN = /token|secret|password|api[_-]?key/i;
 export const REDACTED = "[redacted]";
 
-/** Field size caps (~2KB each). Records stay small and bounded on disk. */
+/** Compact field caps (~2KB each). These drive list views and stay tiny. */
 export const MAX_ARGS_BYTES = 2048;
 export const MAX_PREVIEW_BYTES = 2048;
 
+/** Full field cap (256KB). Big enough for real calls, bounded so a
+ * context-dumping tool cannot blow up the log. */
+export const MAX_FULL_BYTES = 256 * 1024;
+
 const AGENT_ID_LENGTH = 8;
+const CALL_ID_LENGTH = 8;
+
+/** Placeholder shown for old records that predate the callId field. */
+export const MISSING_CALL_ID = "--------";
 
 export type Outcome = "ok" | "error";
 
@@ -28,18 +37,26 @@ export interface AuditRecord {
   ts: string;
   sessionId: string;
   agentId: string;
+  /** Short, stable id for this exact call; absent on pre-callId records. */
+  callId?: string;
   cwd: string;
   tool: string;
   /** Redacted args serialized to JSON, truncated to MAX_ARGS_BYTES. */
   args: string;
+  /** Full redacted args (up to MAX_FULL_BYTES); omitted when equal to args. */
+  argsFull?: string;
   outcome: Outcome;
   /** Result or error text, truncated to MAX_PREVIEW_BYTES. */
   preview: string;
+  /** Full result text (up to MAX_FULL_BYTES); omitted when equal to preview. */
+  resultFull?: string;
   durationMs?: number;
 }
 
 export interface RecordInput {
   sessionId: string;
+  /** Pi's toolCallId; hashed into a stable short callId. */
+  toolCallId?: string;
   cwd: string;
   tool: string;
   args: unknown;
@@ -55,6 +72,24 @@ export interface RecordInput {
 export function shortAgentId(sessionId: string): string {
   const id = (sessionId || "unknown").trim() || "unknown";
   return id.slice(0, AGENT_ID_LENGTH);
+}
+
+/** Short, stable call id: a hash of Pi's toolCallId, so distinct calls that
+ * share a prefix never collide. Empty input yields an empty id. */
+export function shortCallId(toolCallId: string): string {
+  const id = (toolCallId || "").trim();
+  if (!id) return "";
+  return createHash("sha1").update(id).digest("hex").slice(0, CALL_ID_LENGTH);
+}
+
+/** Full redacted args of a record, falling back to the compact field. */
+export function fullArgs(record: AuditRecord): string {
+  return record.argsFull ?? record.args;
+}
+
+/** Full result text of a record, falling back to the compact preview. */
+export function fullResult(record: AuditRecord): string {
+  return record.resultFull ?? record.preview;
 }
 
 /** Deep-copy a value, replacing any value whose key looks sensitive. */
@@ -113,16 +148,24 @@ export function resultPreview(result: unknown): string {
 /** Shape one input into a bounded, redacted record. */
 export function buildRecord(input: RecordInput): AuditRecord {
   const endedAt = input.endedAt ?? Date.now();
+  const argsText = safeStringify(redactSecrets(input.args));
+  const resultText = resultPreview(input.result);
   const record: AuditRecord = {
     ts: new Date(endedAt).toISOString(),
     sessionId: input.sessionId,
     agentId: shortAgentId(input.sessionId),
     cwd: input.cwd,
     tool: input.tool,
-    args: truncateBytes(safeStringify(redactSecrets(input.args)), MAX_ARGS_BYTES),
+    args: truncateBytes(argsText, MAX_ARGS_BYTES),
     outcome: input.isError ? "error" : "ok",
-    preview: truncateBytes(resultPreview(input.result), MAX_PREVIEW_BYTES),
+    preview: truncateBytes(resultText, MAX_PREVIEW_BYTES),
   };
+  const callId = shortCallId(input.toolCallId ?? "");
+  if (callId) record.callId = callId;
+  const argsFull = truncateBytes(argsText, MAX_FULL_BYTES);
+  if (argsFull !== record.args) record.argsFull = argsFull;
+  const resultFull = truncateBytes(resultText, MAX_FULL_BYTES);
+  if (resultFull !== record.preview) record.resultFull = resultFull;
   if (typeof input.startedAt === "number") {
     record.durationMs = Math.max(0, endedAt - input.startedAt);
   }
@@ -251,6 +294,64 @@ export function formatAgent(records: AuditRecord[], agentId: string, limit = 50)
     lines.push("");
   }
   return lines.join("\n").trimEnd();
+}
+
+/** Compact one-line summary of a single call for list views. */
+function callLine(record: AuditRecord): string {
+  const id = record.callId ?? MISSING_CALL_ID;
+  const mark = record.outcome === "error" ? "ERR" : "ok ";
+  const duration = record.durationMs === undefined ? "" : ` ${record.durationMs}ms`;
+  return `${id}  ${record.ts}  ${record.agentId}  ${mark}  ${record.tool}${duration}  ${oneLine(record.args, 80)}`;
+}
+
+/** One line per call, newest first, capped to `limit`. */
+export function formatCalls(records: AuditRecord[], limit = 30): string {
+  if (records.length === 0) return "tool-audit: no records yet";
+  const recent = records.slice(-limit).reverse();
+  const lines: string[] = [`tool-audit: ${records.length} calls (showing ${recent.length}, newest first)`, ""];
+  for (const record of recent) lines.push(callLine(record));
+  return lines.join("\n");
+}
+
+/** Newest-first lookup of one call by its exact callId. */
+function findCall(records: AuditRecord[], callId: string): AuditRecord | undefined {
+  for (let i = records.length - 1; i >= 0; i -= 1) {
+    if (records[i].callId === callId) return records[i];
+  }
+  return undefined;
+}
+
+/** Pretty-print a stored args string as JSON, or return it as-is if it is
+ * not parseable (e.g. truncated at the byte cap). */
+function prettyJson(text: string): string {
+  try {
+    return JSON.stringify(JSON.parse(text), null, 2);
+  } catch {
+    return text;
+  }
+}
+
+/** Full detail for one call: every stored field, complete redacted args
+ * pretty-printed, and the complete result text. */
+export function formatCall(records: AuditRecord[], callId: string): string {
+  const match = findCall(records, callId);
+  if (!match) return `tool-audit: no call ${callId}`;
+  const lines: string[] = [];
+  lines.push(`tool-audit call ${match.callId ?? MISSING_CALL_ID}`);
+  lines.push(`ts:        ${match.ts}`);
+  lines.push(`agent:     ${match.agentId}`);
+  lines.push(`session:   ${match.sessionId}`);
+  lines.push(`cwd:       ${match.cwd}`);
+  lines.push(`tool:      ${match.tool}`);
+  lines.push(`outcome:   ${match.outcome}`);
+  if (match.durationMs !== undefined) lines.push(`duration:  ${match.durationMs}ms`);
+  lines.push("");
+  lines.push("args:");
+  lines.push(prettyJson(fullArgs(match)));
+  lines.push("");
+  lines.push("result:");
+  lines.push(fullResult(match) || "(empty)");
+  return lines.join("\n");
 }
 
 // ============================================================================
