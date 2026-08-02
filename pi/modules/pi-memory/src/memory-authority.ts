@@ -49,6 +49,11 @@ export interface UpsertMemoryInput {
   expiresAt?: string;
 }
 
+export interface UpsertMemoryResult {
+  operation: "created" | "replaced";
+  record: MemoryRecord;
+}
+
 export interface MemoryConflict {
   key: string;
   winnerId: string;
@@ -79,6 +84,10 @@ export class MemoryAuthority {
   }
 
   upsert(input: UpsertMemoryInput): MemoryRecord {
+    return this.upsertWithResult(input).record;
+  }
+
+  upsertWithResult(input: UpsertMemoryInput): UpsertMemoryResult {
     if (this.#maxRecordChars !== undefined && input.value.length > this.#maxRecordChars) {
       throw new Error(`Record value exceeds the hard cap of ${this.#maxRecordChars} characters`);
     }
@@ -104,7 +113,7 @@ export class MemoryAuthority {
     if (existingIndex === -1) records.push(record);
     else records[existingIndex] = record;
     writeRecordsAtomically(path, records);
-    return record;
+    return { operation: existingIndex === -1 ? "created" : "replaced", record };
   }
 
   appendNote(input: {
@@ -135,7 +144,7 @@ export class MemoryAuthority {
     return record;
   }
 
-  retire(scope: MemoryScope, key: string): void {
+  retire(scope: MemoryScope, key: string): MemoryRecord {
     const path = this.#pathFor(scope);
     const records = readRecords(path);
     const record = records.find((r) => r.scope === scope && r.key === key);
@@ -143,6 +152,7 @@ export class MemoryAuthority {
     record.status = "retired";
     record.updatedAt = this.#now().toISOString();
     writeRecordsAtomically(path, records);
+    return record;
   }
 
   listActive(scope: MemoryScope): MemoryRecord[] {

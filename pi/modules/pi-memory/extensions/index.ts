@@ -2,7 +2,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { MemoryAuthority } from "../src/memory-authority.ts";
+import { MemoryAuthority, type MemoryRecord } from "../src/memory-authority.ts";
 import {
   NUDGE_MESSAGE,
   buildMemoryListing,
@@ -33,6 +33,31 @@ function makeAuthority(): MemoryAuthority {
     projectPath: projectStorePath(process.cwd()),
     maxRecordChars: MAX_RECORD_CHARS,
   });
+}
+
+type MemoryMutationOperation = "created" | "replaced" | "retired";
+
+function visibleRecord(record: MemoryRecord) {
+  return {
+    id: record.id,
+    key: record.key,
+    scope: record.scope,
+    kind: record.kind,
+    status: record.status,
+    value: record.value,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
+    expiresAt: record.expiresAt ?? null,
+  };
+}
+
+function memoryMutationResult(operation: MemoryMutationOperation, record: MemoryRecord) {
+  const visible = visibleRecord(record);
+  const heading = `${operation[0].toUpperCase()}${operation.slice(1)} governed memory record:`;
+  return {
+    content: [{ type: "text", text: `${heading}\n${JSON.stringify(visible, null, 2)}` }],
+    details: { operation, record: visible },
+  };
 }
 
 export default function (pi: ExtensionAPI) {
@@ -144,11 +169,8 @@ export default function (pi: ExtensionAPI) {
         projectPath: projectStorePath(projectRoot),
         maxRecordChars: MAX_RECORD_CHARS,
       });
-      const record = authority.upsert(params);
-      return {
-        content: [{ type: "text", text: `Remembered [${record.scope}/${record.key}]: ${record.value}` }],
-        details: {},
-      };
+      const result = authority.upsertWithResult(params);
+      return memoryMutationResult(result.operation, result.record);
     },
   });
 
@@ -170,11 +192,8 @@ export default function (pi: ExtensionAPI) {
         projectPath: projectStorePath(projectRoot),
         maxRecordChars: MAX_RECORD_CHARS,
       });
-      authority.retire(params.scope, params.key);
-      return {
-        content: [{ type: "text", text: `Retired [${params.scope}/${params.key}]` }],
-        details: {},
-      };
+      const record = authority.retire(params.scope, params.key);
+      return memoryMutationResult("retired", record);
     },
   });
 }

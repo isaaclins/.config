@@ -24,10 +24,12 @@
     "pack-check": "npm pack --dry-run"
   },
   "peerDependencies": {
-    "@earendil-works/pi-coding-agent": "^0.80.3"
+    "@earendil-works/pi-coding-agent": "^0.80.3",
+    "typebox": "*"
   },
   "devDependencies": {
     "@types/node": "24.12.4",
+    "typebox": "1.1.38",
     "typescript": "5.9.3"
   }
 }

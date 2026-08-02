@@ -62,9 +62,15 @@ node scripts/migrate-legacy-notes.mjs <legacy-file> \
 
 When the same key exists in both global and project scope, the project-scope record wins and the global record is shadowed (reported in `conflicts`).
 
+### Mutation tool results
+
+Every successful `pi_memory_upsert` and `pi_memory_retire` result includes an ordered, pretty-printed JSON representation of the complete affected record. The visible record contains `id`, `key`, `scope`, `kind`, `status`, `value`, `createdAt`, `updatedAt`, and `expiresAt`. A null `expiresAt` means that the record has no expiration.
+
+Upsert results identify the operation as `created` or `replaced`. Retirement results identify it as `retired` and show the resulting retired record, including its full value. The same operation and record are also returned in tool-result `details` for audit consumers. Missing records and other failures throw clear errors instead of returning a success heading.
+
 ### Retirement
 
-`retire(scope, key)` marks a record's status as `"retired"`. Retired records:
+`retire(scope, key)` marks a record's status as `"retired"` and returns the resulting record. Retired records:
 - Are excluded from `buildInjection()` output
 - Are NOT deleted from disk (append-only history is preserved)
 - Can be found by reading the JSONL file directly
