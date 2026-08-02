@@ -1,10 +1,11 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { PromptStash } from "../lib/prompt-stash.ts";
 import { promptStashWidget } from "./ui-polish.ts";
 
 /**
  * Prompt stash (Claude-Code-style ctrl+s).
  *
- * Single slot, module-level state:
+ * Single slot:
  * - ctrl+s with text in the editor: stash it, clear the editor, show a
  *   persistent widget so the stash is visible while held.
  * - ctrl+s with an empty editor and a stash present: pop the stash back
@@ -16,6 +17,11 @@ import { promptStashWidget } from "./ui-polish.ts";
  *   stash exists, put it back into the editor and clear the stash and
  *   widget. This reproduces "stashed prompt reappears after submit".
  *
+ * The slot lives in process-scoped storage rather than this factory's
+ * closure, because a reload rebinds a fresh extension instance and would
+ * otherwise drop a held stash on the floor. Only a reload keeps it; a new,
+ * resumed, or forked session starts a different conversation and clears it.
+ *
  * Caveat: ctrl+s is pi's default keybinding for
  * app.session.toggleSort inside the session picker context, not the main
  * editor. This extension's shortcut only fires while the main editor has
@@ -23,17 +29,20 @@ import { promptStashWidget } from "./ui-polish.ts";
  */
 
 export default function (pi: ExtensionAPI) {
-  let stash: string | undefined;
+  const stash = new PromptStash();
 
-  pi.on("session_start", async () => {
-    stash = undefined;
+  pi.on("session_start", async (event, ctx) => {
+    const held = stash.onSessionStart(event.reason);
+    // The widget belongs to the torn-down UI, so a preserved stash has to be
+    // rendered again or it would be held invisibly.
+    if (held === undefined || !ctx.hasUI) return;
+    ctx.ui.setWidget("prompt-stash", promptStashWidget(held));
   });
 
   pi.on("agent_start", async (_event, ctx) => {
-    if (stash === undefined) return;
-    const restored = stash;
-    stash = undefined;
-    if (!ctx.hasUI) return;
+    if (!stash.has) return;
+    const restored = stash.take();
+    if (restored === undefined || !ctx.hasUI) return;
     ctx.ui.setEditorText(restored);
     ctx.ui.setWidget("prompt-stash", undefined);
   });
@@ -45,19 +54,17 @@ export default function (pi: ExtensionAPI) {
       const current = ctx.ui.getEditorText();
 
       if (!current.trim()) {
-        if (stash === undefined) {
+        if (!stash.has) {
           ctx.ui.notify("Nothing to stash", "info");
           return;
         }
-        const restored = stash;
-        stash = undefined;
-        ctx.ui.setEditorText(restored);
+        ctx.ui.setEditorText(stash.take() ?? "");
         ctx.ui.setWidget("prompt-stash", undefined);
         return;
       }
 
-      const previousStash = stash;
-      stash = current;
+      const previousStash = stash.peek();
+      stash.set(current);
 
       if (previousStash === undefined) {
         ctx.ui.setEditorText("");
