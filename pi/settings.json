@@ -1,6 +1,6 @@
 {
   "collapseChangelog": true,
-  "defaultModel": "claude-fable-5",
+  "defaultModel": "claude-haiku-4-5-20251001",
   "defaultProjectTrust": "always",
   "defaultProvider": "anthropic",
   "defaultThinkingLevel": "high",
