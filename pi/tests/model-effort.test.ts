@@ -161,9 +161,10 @@ test("only a genuine maximum-class effort uses the ultracode label", () => {
   );
 });
 
-test("/effort and thinking_level_select use model-aware names", async () => {
+test("/effort, Shift+Tab, and thinking_level_select use model-aware names", async () => {
   const { fable, sol } = configuredModels();
   const commands = new Map<string, any>();
+  const shortcuts = new Map<string, any>();
   const handlers = new Map<string, Array<(event: any, ctx: any) => Promise<void>>>();
   const setLevels: PiThinkingLevel[] = [];
   const statuses: Array<string | undefined> = [];
@@ -173,6 +174,9 @@ test("/effort and thinking_level_select use model-aware names", async () => {
   const pi = {
     registerCommand(name: string, command: any) {
       commands.set(name, command);
+    },
+    registerShortcut(shortcut: string, options: any) {
+      shortcuts.set(shortcut, options);
     },
     on(name: string, handler: (event: any, ctx: any) => Promise<void>) {
       handlers.set(name, [...(handlers.get(name) ?? []), handler]);
@@ -199,8 +203,15 @@ test("/effort and thinking_level_select use model-aware names", async () => {
   }
 
   await handlers.get("session_start")?.[0]({}, context(sol));
+  assert.equal(statuses.at(-1), "effort:high");
+
+  await shortcuts.get("shift+tab").handler(context(sol));
+  assert.deepEqual(setLevels, ["high"]);
+  assert.equal(statuses.at(-1), "effort:xhigh");
+  assert.equal(notifications.at(-1), "Effort: xhigh");
+
   await commands.get("effort").handler("ultra", context(sol));
-  assert.deepEqual(setLevels, ["max"]);
+  assert.deepEqual(setLevels, ["high", "max"]);
   assert.equal(stripVTControlCharacters(statuses.at(-1) ?? ""), "ultracode");
 
   currentLevel = "xhigh";
@@ -222,6 +233,7 @@ test("model_select clamps a remembered ultra effort to Fable max", async () => {
 
   const pi = {
     registerCommand() {},
+    registerShortcut() {},
     on(name: string, handler: (event: any, ctx: any) => Promise<void>) {
       handlers.set(name, [...(handlers.get(name) ?? []), handler]);
     },

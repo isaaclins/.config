@@ -4,6 +4,7 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import {
   clampEffort,
+  cycleEffort,
   effortForLevel,
   effortStatusLabel,
   levelForEffort,
@@ -63,6 +64,24 @@ function setEffortStatus(
 export default function modelEffort(pi: ExtensionAPI): void {
   let activeModel: EffortModel | undefined;
   let selectedEffort: string | undefined;
+
+  pi.registerShortcut("shift+tab", {
+    description: "Cycle the current model's reasoning effort",
+    handler: async (ctx) => {
+      const model = ctx.model as EffortModel | undefined;
+      if (!model) {
+        ctx.ui.notify("No model selected", "warning");
+        return;
+      }
+
+      const next = cycleEffort(model, pi.getThinkingLevel());
+      activeModel = model;
+      selectedEffort = next.effort;
+      pi.setThinkingLevel(next.level);
+      setEffortStatus(ctx, model, next.effort);
+      ctx.ui.notify(`Effort: ${next.effort}`, "info");
+    },
+  });
 
   pi.registerCommand("effort", {
     description: "Show or set the current model's reasoning effort",
