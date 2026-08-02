@@ -1,0 +1,46 @@
+{
+  "name": "pi-tmux-image-preview",
+  "version": "0.1.0",
+  "description": "Render Pi read-tool image previews inside tmux using pane-safe Kitty placeholders",
+  "type": "module",
+  "main": "./src/index.ts",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "pi": {
+    "extensions": [
+      "./src/index.ts"
+    ]
+  },
+  "scripts": {
+    "typecheck": "tsc",
+    "test": "node --experimental-strip-types --test src/*.test.ts",
+    "pack-check": "npm run typecheck && npm run test && npm pack --dry-run"
+  },
+  "keywords": ["pi-package", "pi-extension", "tmux", "kitty-graphics"],
+  "author": "Isaac Lins",
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "0.80.6",
+    "@earendil-works/pi-tui": "0.80.6",
+    "@types/node": "24.12.4",
+    "typescript": "5.9.3"
+  },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    },
+    "@earendil-works/pi-tui": {
+      "optional": true
+    }
+  }
+}
