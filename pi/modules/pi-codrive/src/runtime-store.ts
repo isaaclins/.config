@@ -16,11 +16,30 @@ import type { HarnessSession } from "./session.ts";
 
 const SAFE_ID = /^[A-Za-z0-9_-]{1,128}$/;
 
+export type ChildStatus =
+  | "spawned"
+  | "running"
+  | "interrupted"
+  | "dead"
+  | "completed";
+
 export interface ChildRecord {
   childId: string;
   paneId: string;
   model: string;
   createdAt: string;
+  /** The child's own pi session id, pre-assigned at spawn for deterministic resume. */
+  piSessionId?: string;
+  /** The child's resolved pi session file, learned from its announce envelope. */
+  piSessionFile?: string;
+  /** The project root the child was launched in. */
+  projectRoot?: string;
+  /** Lifecycle status mirrored from the supervisor state machine. */
+  status?: ChildStatus;
+  /** How many times this child has been relaunched via agent_resume. */
+  resumeCount?: number;
+  /** Every pane id this child has ever occupied, oldest first. */
+  paneHistory?: string[];
 }
 
 export type ReportStatus = "completed" | "error" | "aborted";
@@ -37,11 +56,31 @@ export interface CodriveReport {
   errorSummary?: string;
 }
 
+const STATE_VERSION = 2;
+
 interface PersistedState {
-  version: 1;
+  version: 2;
   updatedAt: string;
   session: HarnessSession;
   children: ChildRecord[];
+}
+
+/**
+ * Normalize a child record so old (v1) records and minimal registrations gain
+ * the fields the resume machinery depends on. Missing fields are tolerated and
+ * filled with safe defaults rather than rejected.
+ */
+function normalizeChild(child: ChildRecord, projectRoot: string): ChildRecord {
+  return {
+    ...child,
+    projectRoot: child.projectRoot ?? projectRoot,
+    status: child.status ?? "running",
+    resumeCount: child.resumeCount ?? 0,
+    paneHistory:
+      child.paneHistory && child.paneHistory.length > 0
+        ? [...child.paneHistory]
+        : [child.paneId],
+  };
 }
 
 export interface RuntimeStoreOptions {
@@ -82,7 +121,7 @@ export class RuntimeStore {
   saveSession(session: HarnessSession): void {
     const existing = this.loadState(session.sessionId);
     this.writeState({
-      version: 1,
+      version: STATE_VERSION,
       updatedAt: new Date(this.now()).toISOString(),
       session: { ...session, childIds: [...session.childIds] },
       children: existing?.children ?? [],
@@ -95,7 +134,7 @@ export class RuntimeStore {
     const children = state.children.filter(
       (existing) => existing.childId !== child.childId,
     );
-    children.push({ ...child });
+    children.push(normalizeChild(child, state.session.projectRoot));
     if (!state.session.childIds.includes(child.childId)) {
       state.session.childIds.push(child.childId);
     }
@@ -104,6 +143,50 @@ export class RuntimeStore {
       updatedAt: new Date(this.now()).toISOString(),
       children,
     });
+  }
+
+  /**
+   * Apply a partial update to a single child record. Used by the resume path
+   * to record the new pane id, bump resumeCount, append pane history, and set
+   * status without rewriting the whole record.
+   */
+  updateChild(
+    sessionId: string,
+    childId: string,
+    patch: Partial<Omit<ChildRecord, "childId">>,
+  ): ChildRecord {
+    assertSafeId(childId, "childId");
+    const state = this.requireState(sessionId);
+    const index = state.children.findIndex((child) => child.childId === childId);
+    if (index < 0) throw new Error(`Unknown child ${childId}`);
+    const merged = normalizeChild(
+      { ...state.children[index], ...patch, childId },
+      state.session.projectRoot,
+    );
+    const children = [...state.children];
+    children[index] = merged;
+    this.writeState({
+      ...state,
+      updatedAt: new Date(this.now()).toISOString(),
+      children,
+    });
+    return { ...merged };
+  }
+
+  /**
+   * Resolve a child by any pane id it has ever occupied, current or historical.
+   * This lets the parent still locate a child after a resume moved it to a new
+   * pane, and keeps the old pane id resolvable.
+   */
+  findChildByPane(sessionId: string, paneId: string): ChildRecord | undefined {
+    const state = this.loadState(sessionId);
+    if (!state) return undefined;
+    const match = state.children.find(
+      (child) =>
+        child.paneId === paneId ||
+        (child.paneHistory ?? []).includes(paneId),
+    );
+    return match ? { ...match } : undefined;
   }
 
   appendReport(report: CodriveReport): void {
@@ -180,14 +263,31 @@ export class RuntimeStore {
   private loadState(sessionId: string): PersistedState | undefined {
     const path = this.statePath(sessionId);
     if (!existsSync(path)) return undefined;
-    const parsed = JSON.parse(readFileSync(path, "utf8")) as PersistedState;
-    if (parsed.version !== 1 || parsed.session.sessionId !== sessionId) {
+    const parsed = JSON.parse(readFileSync(path, "utf8")) as {
+      version?: number;
+      updatedAt: string;
+      session: HarnessSession;
+      children: ChildRecord[];
+    };
+    if (
+      (parsed.version !== 1 && parsed.version !== STATE_VERSION) ||
+      parsed.session.sessionId !== sessionId
+    ) {
       throw new Error(`Invalid runtime state for ${sessionId}`);
     }
-    return parsed;
+    // Tolerate and migrate v1 records: fill the resume fields with defaults.
+    return {
+      version: STATE_VERSION,
+      updatedAt: parsed.updatedAt,
+      session: parsed.session,
+      children: (parsed.children ?? []).map((child) =>
+        normalizeChild(child, parsed.session.projectRoot),
+      ),
+    };
   }
 
   private writeState(state: PersistedState): void {
+    state = { ...state, version: STATE_VERSION };
     const directory = this.sessionDirectory(state.session.sessionId);
     ensurePrivateDirectory(directory);
     const path = this.statePath(state.session.sessionId);

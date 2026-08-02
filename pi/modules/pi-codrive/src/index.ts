@@ -14,6 +14,7 @@ export {
   type CodriveControllerOptions,
   type CodrivePolicy,
   type DelegationAccountingEvent,
+  type ResumeRequest,
   type SpawnLaunch,
   type SpawnRequest,
   type SpawnedChild,
@@ -21,17 +22,44 @@ export {
 export {
   RuntimeStore,
   type ChildRecord,
+  type ChildStatus,
   type CodriveReport,
   type RecoveredRuntime,
   type ReportStatus,
   type RuntimeStoreOptions,
 } from "./runtime-store.ts";
-export { ReportServer, sendReport, type ReportServerHandle } from "./report-transport.ts";
+export {
+  ReportServer,
+  sendReport,
+  sendEnvelope,
+  type AnnouncePayload,
+  type CodriveEnvelope,
+  type EnvelopeKind,
+  type FarewellPayload,
+  type InterruptEvidence,
+  type OutgoingEnvelope,
+  type ReportServerHandle,
+} from "./report-transport.ts";
+export {
+  DelegationSupervisor,
+  type DelegationSupervisorOptions,
+  type HealthMonitorLike,
+  type SupervisorHistoryEntry,
+  type SupervisorScheduler,
+  type SupervisorWake,
+} from "./supervisor.ts";
+export {
+  ChildReporter,
+  DEFAULT_SETTLE_MS,
+  type ChildReporterOptions,
+  type ReporterScheduler,
+} from "./child-reporter.ts";
 export { TmuxBackend, type TmuxBackendOptions } from "./tmux-backend.ts";
 export {
   buildPiArguments,
   createForkedSession,
   readSessionEntries,
+  readSessionId,
   sanitizeUnsafeThinkingBlocks,
   type BranchingSessionManager,
   type ForkResult,
@@ -55,8 +83,12 @@ export {
 } from "./ipc-env.ts";
 export {
   buildChildReport,
+  buildInterruptEvidence,
+  classifyAgentEnd,
   extractAssistantText,
+  lastAssistantErrorMessage,
   safeErrorSummary,
   truncateReportText,
+  type AgentEndOutcome,
   type BuildChildReportOptions,
 } from "./report-builder.ts";

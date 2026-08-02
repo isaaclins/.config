@@ -174,14 +174,25 @@ export function createForkedSession(
 }
 
 /**
- * Build the CLI argument vector passed to the spawned `pi` process. When a
- * fork is supplied its thinking override wins over the configured thinking
- * level and the branched session file is attached with `--session`.
+ * Build the CLI argument vector passed to the spawned `pi` process.
+ *
+ * Session selection is mutually exclusive and precedence ordered so it never
+ * emits conflicting flags (pi rejects --session-id combined with --session):
+ *   1. fork          -> `--session <branchedFile>` (fork wins its thinking off)
+ *   2. resumeSession -> `--session <file>` (resume a recorded session file)
+ *   3. sessionId     -> `--session-id <id>` (fresh spawn and id-based resume)
+ *
+ * A pre-assigned session id makes both spawn and resume deterministic and
+ * non-interactive: `--session-id` opens the exact project session (creating it
+ * if missing), so the orchestrator's own session can never be resumed by
+ * accident.
  */
 export function buildPiArguments(input: {
   prompt?: string;
   model?: string | null;
   thinking?: string | null;
+  sessionId?: string | null;
+  resumeSessionFile?: string | null;
   fork?: ForkResult;
 }): string[] {
   const args: string[] = [];
@@ -189,6 +200,20 @@ export function buildPiArguments(input: {
   const thinking = input.fork?.thinkingOverride ?? input.thinking;
   if (thinking) args.push("--thinking", thinking);
   if (input.fork) args.push("--session", input.fork.sessionFile);
+  else if (input.resumeSessionFile) args.push("--session", input.resumeSessionFile);
+  else if (input.sessionId) args.push("--session-id", input.sessionId);
   if (input.prompt) args.push(input.prompt);
   return args;
+}
+
+/**
+ * Read a session file's own session id from its header entry, when present.
+ * Used to record a forked child's session identity for later resume.
+ */
+export function readSessionId(sessionFile: string): string | undefined {
+  if (!existsSync(sessionFile)) return undefined;
+  for (const entry of readSessionEntries(sessionFile)) {
+    if (entry.type === "session" && typeof entry.id === "string") return entry.id;
+  }
+  return undefined;
 }

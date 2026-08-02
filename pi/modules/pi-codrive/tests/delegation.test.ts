@@ -280,6 +280,125 @@ test("spawn with fork context branches a session file and passes fork args to th
   ]);
 });
 
+test("a fresh spawn pre-assigns a pi session id and emits it as --session-id", async () => {
+  const projectRoot = mkdtempSync(join(tmpdir(), "pi-codrive-sessionid-"));
+  const launches: SpawnLaunch[] = [];
+  const backend: CodriveBackend = {
+    name: "fake",
+    async spawn(launch) {
+      launches.push(launch);
+      return { paneId: "%5" };
+    },
+    async isAlive() {
+      return true;
+    },
+    async read() {
+      return "";
+    },
+    async send() {},
+  };
+  const controller = new CodriveController({
+    session: createHarnessSession({
+      projectRoot,
+      role: "orchestrator",
+      delegationDepth: 0,
+      trust: "trusted",
+    }),
+    backend,
+    policy: { defaultModel: "m", account() {} },
+  });
+
+  const child = await controller.spawn({ prompt: "go", context: "fresh" });
+  assert.ok(child.piSessionId, "a fresh spawn assigns a session id");
+  assert.equal(launches[0].sessionId, child.piSessionId);
+  const args = buildPiArguments({
+    prompt: launches[0].prompt,
+    model: launches[0].model,
+    sessionId: launches[0].sessionId,
+  });
+  assert.deepEqual(args, ["--model", "m", "--session-id", child.piSessionId, "go"]);
+});
+
+test("resume relaunches the same childId with the recorded session id via --session-id", async () => {
+  const projectRoot = mkdtempSync(join(tmpdir(), "pi-codrive-resume-ctl-"));
+  const launches: SpawnLaunch[] = [];
+  const backend: CodriveBackend = {
+    name: "fake",
+    async spawn(launch) {
+      launches.push(launch);
+      return { paneId: "%8" };
+    },
+    async isAlive() {
+      return true;
+    },
+    async read() {
+      return "";
+    },
+    async send() {},
+  };
+  const controller = new CodriveController({
+    session: createHarnessSession({
+      projectRoot,
+      role: "orchestrator",
+      delegationDepth: 0,
+      trust: "trusted",
+    }),
+    backend,
+    policy: { defaultModel: "m", account() {} },
+    reportSocket: "/tmp/p.sock",
+    reportNonce: "n",
+  });
+
+  const resumed = await controller.resume({
+    childId: "child-keep",
+    model: "m",
+    sessionId: "sess-keep",
+    prompt: "continue",
+  });
+  assert.equal(resumed.childId, "child-keep");
+  assert.equal(launches[0].identity.childId, "child-keep");
+  assert.equal(launches[0].sessionId, "sess-keep");
+  assert.equal(launches[0].reportSocket, "/tmp/p.sock");
+  const args = buildPiArguments({
+    prompt: launches[0].prompt,
+    model: launches[0].model,
+    sessionId: launches[0].sessionId,
+    resumeSessionFile: launches[0].resumeSessionFile,
+  });
+  assert.deepEqual(args, ["--model", "m", "--session-id", "sess-keep", "continue"]);
+});
+
+test("resume requires a recorded session id or file", async () => {
+  const projectRoot = mkdtempSync(join(tmpdir(), "pi-codrive-resume-missing-"));
+  const backend: CodriveBackend = {
+    name: "fake",
+    async spawn() {
+      return { paneId: "%1" };
+    },
+    async isAlive() {
+      return true;
+    },
+    async read() {
+      return "";
+    },
+    async send() {},
+  };
+  const controller = new CodriveController({
+    session: createHarnessSession({
+      projectRoot,
+      role: "orchestrator",
+      delegationDepth: 0,
+      trust: "trusted",
+    }),
+    backend,
+    policy: { defaultModel: "m", account() {} },
+  });
+  await assert.rejects(
+    () => controller.resume({ childId: "c", model: "m" }),
+    /recorded session/,
+  );
+});
+
 test("spawn with fork context requires a fork source when no forkSessionFile is supplied", async () => {
   const projectRoot = mkdtempSync(join(tmpdir(), "pi-codrive-fork-missing-"));
   const backend: CodriveBackend = {

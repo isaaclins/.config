@@ -1,4 +1,5 @@
 import type { CodriveReport, ReportStatus } from "./runtime-store.ts";
+import type { InterruptEvidence } from "./report-transport.ts";
 
 export const MAX_REPORT_BYTES = 50 * 1024;
 export const MAX_REPORT_LINES = 2000;
@@ -9,6 +10,83 @@ interface AssistantLike {
   content?: unknown;
   stopReason?: unknown;
   errorMessage?: unknown;
+}
+
+/**
+ * The outcome of an agent loop ending. A stopReason of "error" maps to
+ * "interrupted" and is NEVER terminal on its own: pi tears the loop down on a
+ * transient provider/stream failure and then auto-retries (or the child waits
+ * idle), so the parent must treat it as a non-terminal signal.
+ */
+export type AgentEndOutcome = "completed" | "aborted" | "interrupted";
+
+function lastAssistant(messages: unknown): AssistantLike | undefined {
+  const assistantMessages = Array.isArray(messages)
+    ? messages.filter(
+        (message): message is AssistantLike =>
+          Boolean(message) &&
+          typeof message === "object" &&
+          (message as AssistantLike).role === "assistant",
+      )
+    : [];
+  return assistantMessages.at(-1);
+}
+
+function lastAssistantStopReason(messages: unknown): string | undefined {
+  const assistant = lastAssistant(messages);
+  return typeof assistant?.stopReason === "string" ? assistant.stopReason : undefined;
+}
+
+/** The last assistant message's raw errorMessage, if any (for interrupt evidence). */
+export function lastAssistantErrorMessage(messages: unknown): unknown {
+  return lastAssistant(messages)?.errorMessage;
+}
+
+/**
+ * Classify why an agent loop ended from its message list. "error" is treated
+ * as an interruption, not a completion, because the loop can be resumed by an
+ * auto-retry or a later prompt.
+ */
+export function classifyAgentEnd(messages: unknown): AgentEndOutcome {
+  const stopReason = lastAssistantStopReason(messages);
+  if (stopReason === "error") return "interrupted";
+  if (stopReason === "aborted") return "aborted";
+  return "completed";
+}
+
+/**
+ * Build the evidence attached to an "interrupt" envelope from the last
+ * provider HTTP response the child observed. A 429 or any 5xx is transient
+ * and retryable, so the parent should hold its escalation; a non-transient
+ * status or no HTTP evidence at all means the settle window is authoritative.
+ * This is a mitigation for, not a replacement of, the missing auto_retry
+ * extension seam: provider headers are provider dependent.
+ */
+export function buildInterruptEvidence(input: {
+  providerStatus?: number;
+  retryAfter?: string;
+  errorMessage?: unknown;
+}): InterruptEvidence {
+  const status = typeof input.providerStatus === "number" ? input.providerStatus : undefined;
+  const transient = status === 429 || (status !== undefined && status >= 500 && status <= 599);
+  const retryAfter =
+    typeof input.retryAfter === "string" && input.retryAfter.trim() !== ""
+      ? input.retryAfter
+      : undefined;
+  const summary = safeErrorSummary(input.errorMessage);
+  let reason: string;
+  if (status !== undefined) {
+    reason = transient
+      ? `transient provider failure (HTTP ${status})`
+      : `provider failure (HTTP ${status})`;
+  } else {
+    reason = "stream error with no HTTP evidence";
+  }
+  if (summary) reason = `${reason}: ${summary}`;
+  const evidence: InterruptEvidence = { transient, reason };
+  if (status !== undefined) evidence.providerStatus = status;
+  if (retryAfter) evidence.retryAfter = retryAfter;
+  return evidence;
 }
 
 /**

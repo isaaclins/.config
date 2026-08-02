@@ -170,3 +170,29 @@ test("buildPiArguments wires fork session and thinking override", () => {
   );
   assert.deepEqual(buildPiArguments({ prompt: "go" }), ["go"]);
 });
+
+test("buildPiArguments emits --session-id for a fresh spawn and an id-based resume", () => {
+  assert.deepEqual(
+    buildPiArguments({ prompt: "go", model: "opus", sessionId: "abc-123" }),
+    ["--model", "opus", "--session-id", "abc-123", "go"],
+  );
+});
+
+test("buildPiArguments emits --session for a file-based resume and never combines it with --session-id", () => {
+  assert.deepEqual(
+    buildPiArguments({ prompt: "go", resumeSessionFile: "/tmp/child.jsonl", sessionId: "abc-123" }),
+    ["--session", "/tmp/child.jsonl", "go"],
+  );
+});
+
+test("buildPiArguments keeps fork precedence over session-id", () => {
+  assert.deepEqual(
+    buildPiArguments({
+      prompt: "go",
+      model: "opus",
+      sessionId: "abc-123",
+      fork: { sessionFile: "/tmp/f.jsonl", thinkingOverride: "off" },
+    }),
+    ["--model", "opus", "--thinking", "off", "--session", "/tmp/f.jsonl", "go"],
+  );
+});

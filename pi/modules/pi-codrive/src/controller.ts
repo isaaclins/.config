@@ -16,6 +16,10 @@ export interface SpawnLaunch {
   model: string;
   context: "fresh" | "fork";
   forkSessionFile?: string;
+  /** Pre-assigned pi session id emitted as `--session-id` for a fresh launch or resume. */
+  sessionId?: string;
+  /** A recorded session file to resume, emitted as `--session <file>`. */
+  resumeSessionFile?: string;
   thinking?: string;
   thinkingOverride?: "off";
   identity: ChildIdentity;
@@ -62,6 +66,20 @@ export interface SpawnedChild {
   childId: string;
   paneId: string;
   model: string;
+  /** The pi session id pre-assigned to this child (fresh launches). */
+  piSessionId?: string;
+  /** The recorded session file the child was launched with (fork launches). */
+  piSessionFile?: string;
+}
+
+export interface ResumeRequest {
+  childId: string;
+  model: string;
+  /** Resume by exact pi session id, emitted as `--session-id <id>`. */
+  sessionId?: string;
+  /** Resume by session file, emitted as `--session <file>`. */
+  resumeSessionFile?: string;
+  prompt?: string;
 }
 
 export interface CodriveControllerOptions {
@@ -118,6 +136,9 @@ export class CodriveController {
     const context = request.context ?? "fresh";
     let forkSessionFile = request.forkSessionFile;
     let thinkingOverride: "off" | undefined;
+    // A fresh child gets a pre-assigned pi session id so the parent knows its
+    // session identity before it ever starts, and resume is deterministic.
+    const piSessionId = context === "fresh" ? randomUUID() : undefined;
     if (context === "fork") {
       if (this.forkResolver) {
         const fork = this.forkResolver();
@@ -136,6 +157,7 @@ export class CodriveController {
       model,
       context,
       forkSessionFile,
+      sessionId: piSessionId,
       thinking: usesDefaultModel ? this.policy.defaultThinking : undefined,
       thinkingOverride,
       reportSocket: this.reportSocket,
@@ -157,6 +179,58 @@ export class CodriveController {
       timestamp: new Date().toISOString(),
     });
     this.session.childIds.push(childId);
-    return { childId, paneId: launched.paneId, model };
+    return {
+      childId,
+      paneId: launched.paneId,
+      model,
+      piSessionId,
+      piSessionFile: forkSessionFile,
+    };
+  }
+
+  /**
+   * Relaunch an existing child into a fresh tmux pane, reusing its childId and
+   * resuming its recorded pi session. The session is opened non-interactively
+   * via `--session-id` (or `--session <file>` for a recorded file), so no
+   * interactive picker is involved and the orchestrator's own session can
+   * never be resumed by accident.
+   */
+  async resume(request: ResumeRequest): Promise<SpawnedChild> {
+    assertCanDelegate(this.session);
+    if (!request.sessionId && !request.resumeSessionFile) {
+      throw new Error("Resume requires a recorded session id or session file");
+    }
+    const launched = await this.backend.spawn({
+      projectRoot: this.session.projectRoot,
+      prompt: request.prompt,
+      model: request.model,
+      context: "fresh",
+      sessionId: request.sessionId,
+      resumeSessionFile: request.resumeSessionFile,
+      reportSocket: this.reportSocket,
+      reportNonce: this.reportNonce,
+      identity: {
+        childId: request.childId,
+        parentSessionId: this.session.sessionId,
+        role: "subagent",
+        delegationDepth: this.session.delegationDepth + 1,
+        trust: this.session.trust,
+      },
+    });
+    await this.policy.account({
+      sessionId: this.session.sessionId,
+      childId: request.childId,
+      backend: this.backend.name,
+      model: request.model,
+      context: "fresh",
+      timestamp: new Date().toISOString(),
+    });
+    return {
+      childId: request.childId,
+      paneId: launched.paneId,
+      model: request.model,
+      piSessionId: request.sessionId,
+      piSessionFile: request.resumeSessionFile,
+    };
   }
 }

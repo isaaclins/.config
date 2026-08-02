@@ -1,6 +1,70 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildChildReport, extractAssistantText, safeErrorSummary, truncateReportText } from "../src/index.ts";
+import {
+  buildChildReport,
+  buildInterruptEvidence,
+  classifyAgentEnd,
+  extractAssistantText,
+  lastAssistantErrorMessage,
+  safeErrorSummary,
+  truncateReportText,
+} from "../src/index.ts";
+
+test("classifyAgentEnd maps error to interrupted and is never terminal on its own", () => {
+  assert.equal(
+    classifyAgentEnd([{ role: "assistant", content: "x", stopReason: "error" }]),
+    "interrupted",
+  );
+  assert.equal(
+    classifyAgentEnd([{ role: "assistant", content: "x", stopReason: "aborted" }]),
+    "aborted",
+  );
+  assert.equal(
+    classifyAgentEnd([{ role: "assistant", content: "x", stopReason: "stop" }]),
+    "completed",
+  );
+  assert.equal(classifyAgentEnd([]), "completed");
+  // Only the LAST assistant message decides the outcome.
+  assert.equal(
+    classifyAgentEnd([
+      { role: "assistant", content: "x", stopReason: "error" },
+      { role: "assistant", content: "y", stopReason: "stop" },
+    ]),
+    "completed",
+  );
+});
+
+test("buildInterruptEvidence classifies HTTP status as transient or not with a reason", () => {
+  const rateLimited = buildInterruptEvidence({ providerStatus: 429, retryAfter: "30" });
+  assert.equal(rateLimited.transient, true);
+  assert.equal(rateLimited.providerStatus, 429);
+  assert.equal(rateLimited.retryAfter, "30");
+  assert.match(rateLimited.reason, /transient/);
+
+  assert.equal(buildInterruptEvidence({ providerStatus: 503 }).transient, true);
+  assert.equal(buildInterruptEvidence({ providerStatus: 400 }).transient, false);
+
+  const noEvidence = buildInterruptEvidence({});
+  assert.equal(noEvidence.transient, false);
+  assert.match(noEvidence.reason, /no HTTP evidence/);
+
+  // Error text is redacted before it is folded into the reason string.
+  const redacted = buildInterruptEvidence({
+    providerStatus: 500,
+    errorMessage: "token: example-value",
+  });
+  assert.match(redacted.reason, /credential=\[redacted\]/);
+});
+
+test("lastAssistantErrorMessage returns the final assistant errorMessage", () => {
+  assert.equal(
+    lastAssistantErrorMessage([
+      { role: "assistant", content: "x", stopReason: "error", errorMessage: "boom" },
+    ]),
+    "boom",
+  );
+  assert.equal(lastAssistantErrorMessage([]), undefined);
+});
 
 test("extractAssistantText joins text blocks and passes through plain strings", () => {
   assert.equal(extractAssistantText("plain"), "plain");
