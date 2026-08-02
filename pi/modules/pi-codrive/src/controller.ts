@@ -105,7 +105,9 @@ export class CodriveController {
 
   async spawn(request: SpawnRequest): Promise<SpawnedChild> {
     assertCanDelegate(this.session);
-    const model = request.model ?? this.policy.defaultModel;
+    const requestedModel = request.model?.trim();
+    const usesDefaultModel = !requestedModel;
+    const model = requestedModel || this.policy.defaultModel;
     if (
       this.policy.allowedModels &&
       !this.policy.allowedModels.includes(model)
@@ -134,7 +136,7 @@ export class CodriveController {
       model,
       context,
       forkSessionFile,
-      thinking: this.policy.defaultThinking,
+      thinking: usesDefaultModel ? this.policy.defaultThinking : undefined,
       thinkingOverride,
       reportSocket: this.reportSocket,
       reportNonce: this.reportNonce,

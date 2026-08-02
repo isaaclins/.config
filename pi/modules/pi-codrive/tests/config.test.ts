@@ -4,7 +4,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { DEFAULT_MODEL, loadCodriveConfig } from "../src/config.ts";
+import { DEFAULT_MODEL, DEFAULT_THINKING, loadCodriveConfig } from "../src/config.ts";
+
+test("built-in delegation defaults are Luna Max", () => {
+  assert.equal(DEFAULT_MODEL, "openai-codex/gpt-5.6-luna");
+  assert.equal(DEFAULT_THINKING, "max");
+});
 
 test("loadCodriveConfig returns the file's model and thinking when present and valid", () => {
   const directory = mkdtempSync(join(tmpdir(), "pi-codrive-config-"));
@@ -22,7 +27,7 @@ test("loadCodriveConfig returns the default model when the file does not exist",
 
   const config = loadCodriveConfig(configPath);
 
-  assert.deepEqual(config, { model: DEFAULT_MODEL });
+  assert.deepEqual(config, { model: DEFAULT_MODEL, thinking: DEFAULT_THINKING });
 });
 
 test("loadCodriveConfig throws an actionable error when the file is malformed JSON", () => {
@@ -38,12 +43,25 @@ test("loadCodriveConfig throws an actionable error when the file is malformed JS
   });
 });
 
-test("loadCodriveConfig falls back to the default model when the model field is missing or empty", () => {
+test("loadCodriveConfig falls back to defaults for missing model or thinking fields", () => {
   const directory = mkdtempSync(join(tmpdir(), "pi-codrive-config-"));
   const configPath = join(directory, "config.json");
   writeFileSync(configPath, JSON.stringify({ thinking: "low" }));
 
-  const config = loadCodriveConfig(configPath);
+  assert.deepEqual(loadCodriveConfig(configPath), {
+    model: DEFAULT_MODEL,
+    thinking: "low",
+  });
 
-  assert.deepEqual(config, { model: DEFAULT_MODEL, thinking: "low" });
+  writeFileSync(configPath, JSON.stringify({ model: "anthropic/claude-opus-4-8" }));
+  assert.deepEqual(loadCodriveConfig(configPath), {
+    model: "anthropic/claude-opus-4-8",
+    thinking: DEFAULT_THINKING,
+  });
+
+  writeFileSync(configPath, JSON.stringify({ model: "   ", thinking: "   " }));
+  assert.deepEqual(loadCodriveConfig(configPath), {
+    model: DEFAULT_MODEL,
+    thinking: DEFAULT_THINKING,
+  });
 });

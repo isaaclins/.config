@@ -13,7 +13,8 @@ export interface CodriveExternalConfig {
  * the external config file at defaultConfigPath() is the real source
  * of truth for delegation model defaults.
  */
-export const DEFAULT_MODEL = "anthropic/claude-opus-4-8";
+export const DEFAULT_MODEL = "openai-codex/gpt-5.6-luna";
+export const DEFAULT_THINKING = "max";
 
 export function defaultConfigPath(): string {
   const configHome = process.env.XDG_CONFIG_HOME || join(homedir(), ".config");
@@ -30,7 +31,9 @@ export function defaultConfigPath(): string {
  * wrong model.
  */
 export function loadCodriveConfig(configPath: string = defaultConfigPath()): CodriveExternalConfig {
-  if (!existsSync(configPath)) return { model: DEFAULT_MODEL };
+  if (!existsSync(configPath)) {
+    return { model: DEFAULT_MODEL, thinking: DEFAULT_THINKING };
+  }
 
   let parsed: unknown;
   try {
@@ -45,7 +48,13 @@ export function loadCodriveConfig(configPath: string = defaultConfigPath()): Cod
   }
 
   const raw = parsed as Partial<CodriveExternalConfig>;
-  const model = typeof raw.model === "string" && raw.model.length > 0 ? raw.model : DEFAULT_MODEL;
-  const thinking = typeof raw.thinking === "string" ? raw.thinking : undefined;
-  return thinking === undefined ? { model } : { model, thinking };
+  const model =
+    typeof raw.model === "string" && raw.model.trim().length > 0
+      ? raw.model.trim()
+      : DEFAULT_MODEL;
+  const thinking =
+    typeof raw.thinking === "string" && raw.thinking.trim().length > 0
+      ? raw.thinking.trim()
+      : DEFAULT_THINKING;
+  return { model, thinking };
 }

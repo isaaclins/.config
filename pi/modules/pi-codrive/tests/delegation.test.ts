@@ -40,6 +40,7 @@ test("spawn centralizes cwd, model policy, accounting, and descendant identity",
     backend,
     policy: {
       defaultModel: "openai-codex/gpt-5.6-luna",
+      defaultThinking: "max",
       allowedModels: ["openai-codex/gpt-5.6-luna"],
       account(event) {
         accounted.push({ childId: event.childId, model: event.model });
@@ -53,6 +54,7 @@ test("spawn centralizes cwd, model policy, accounting, and descendant identity",
   assert.equal(launches.length, 1);
   assert.equal(launches[0].projectRoot, realpathSync(projectRoot));
   assert.equal(launches[0].model, "openai-codex/gpt-5.6-luna");
+  assert.equal(launches[0].thinking, "max");
   assert.equal(launches[0].identity.role, "subagent");
   assert.equal(launches[0].identity.delegationDepth, 1);
   assert.equal(launches[0].identity.parentSessionId, controller.session.sessionId);
@@ -60,6 +62,53 @@ test("spawn centralizes cwd, model policy, accounting, and descendant identity",
     { childId: child.childId, model: "openai-codex/gpt-5.6-luna" },
   ]);
   assert.deepEqual(controller.session.childIds, [child.childId]);
+});
+
+test("an explicit model overrides defaults while an empty model does not", async () => {
+  const projectRoot = mkdtempSync(join(tmpdir(), "pi-codrive-model-override-"));
+  const launches: SpawnLaunch[] = [];
+  const backend: CodriveBackend = {
+    name: "fake",
+    async spawn(launch) {
+      launches.push(launch);
+      return { paneId: "%8" };
+    },
+    async isAlive() {
+      return true;
+    },
+    async read() {
+      return "";
+    },
+    async send() {},
+  };
+  const controller = new CodriveController({
+    session: createHarnessSession({
+      projectRoot,
+      role: "orchestrator",
+      delegationDepth: 0,
+      trust: "trusted",
+    }),
+    backend,
+    policy: {
+      defaultModel: "openai-codex/gpt-5.6-luna",
+      defaultThinking: "max",
+      account() {},
+    },
+  });
+
+  await controller.spawn({
+    prompt: "audit",
+    model: "anthropic/claude-opus-4-8:high",
+    context: "fresh",
+  });
+
+  assert.equal(launches[0].model, "anthropic/claude-opus-4-8:high");
+  assert.equal(launches[0].thinking, undefined);
+
+  await controller.spawn({ model: "   ", context: "fresh" });
+
+  assert.equal(launches[1].model, "openai-codex/gpt-5.6-luna");
+  assert.equal(launches[1].thinking, "max");
 });
 
 test("spawn threads reportSocket/reportNonce from controller options into every launch", async () => {

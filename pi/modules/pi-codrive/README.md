@@ -39,6 +39,19 @@ Then in your Pi configuration, add the package so its extension is loaded:
 }
 ```
 
+## Delegation defaults
+
+`spawn_agent` reads model and thinking defaults from `$XDG_CONFIG_HOME/pi-codrive/config.json` (normally `~/.config/pi-codrive/config.json`):
+
+```json
+{
+  "model": "openai-codex/gpt-5.6-luna",
+  "thinking": "max"
+}
+```
+
+Omit `model` when calling `spawn_agent` to use these defaults. Pass `model` only for an explicit override; append a thinking suffix such as `:high` when that override also needs a different thinking level.
+
 ## Tools exposed
 
 | Tool | Description |
