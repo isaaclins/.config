@@ -26,12 +26,20 @@ const config = JSON.parse(
   >;
 };
 
-function configuredModels(): { fable: EffortModel; sol: EffortModel } {
+function configuredModels(): {
+  fable: EffortModel;
+  luna: EffortModel;
+  sol: EffortModel;
+} {
   const fableOverride = config.providers.anthropic.modelOverrides?.["claude-fable-5"];
+  const lunaDefinition = config.providers["openai-codex"].models?.find(
+    (model) => model.id === "gpt-5.6-luna",
+  );
   const solDefinition = config.providers["openai-codex"].models?.find(
     (model) => model.id === "gpt-5.6-sol",
   );
   assert.ok(fableOverride?.thinkingLevelMap);
+  assert.ok(lunaDefinition?.thinkingLevelMap);
   assert.ok(solDefinition?.thinkingLevelMap);
   return {
     fable: {
@@ -40,12 +48,13 @@ function configuredModels(): { fable: EffortModel; sol: EffortModel } {
       reasoning: true,
       ...fableOverride,
     },
+    luna: { ...lunaDefinition, provider: "openai-codex" },
     sol: { ...solDefinition, provider: "openai-codex" },
   };
 }
 
 test("models.json exposes the requested model-specific effort sets", () => {
-  const { fable, sol } = configuredModels();
+  const { fable, luna, sol } = configuredModels();
   assert.deepEqual(supportedEfforts(sol), [
     "low",
     "medium",
@@ -61,15 +70,26 @@ test("models.json exposes the requested model-specific effort sets", () => {
     "xhigh",
     "max",
   ]);
+  assert.deepEqual(supportedEfforts(luna), [
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max",
+  ]);
 
+  const openAiLuna = config.providers.openai.models?.find(
+    (model) => model.id === "gpt-5.6-luna",
+  );
   const openAiSol = config.providers.openai.models?.find(
     (model) => model.id === "gpt-5.6-sol",
   );
+  assert.deepEqual(openAiLuna?.thinkingLevelMap, luna.thinkingLevelMap);
   assert.deepEqual(openAiSol?.thinkingLevelMap, sol.thinkingLevelMap);
 });
 
 test("Shift+Tab order follows each model's thinkingLevelMap and wraps", () => {
-  const { fable, sol } = configuredModels();
+  const { fable, luna, sol } = configuredModels();
 
   function cycleAll(model: EffortModel): string[] {
     const levels = availableThinkingLevels(model);
@@ -96,6 +116,13 @@ test("Shift+Tab order follows each model's thinkingLevelMap and wraps", () => {
     "xhigh",
     "max",
   ]);
+  assert.deepEqual(cycleAll(luna), [
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max",
+  ]);
 });
 
 test("model switches preserve semantic effort and clamp unsupported ultra to max", () => {
@@ -110,8 +137,8 @@ test("model switches preserve semantic effort and clamp unsupported ultra to max
   });
 });
 
-test("the highest model-specific effort uses the ultracode label", () => {
-  const { fable, sol } = configuredModels();
+test("only a genuine maximum-class effort uses the ultracode label", () => {
+  const { fable, luna, sol } = configuredModels();
   assert.deepEqual(effortStatusLabel(sol, "ultra"), {
     label: "ultracode",
     isMaximum: true,
@@ -120,10 +147,18 @@ test("the highest model-specific effort uses the ultracode label", () => {
     label: "ultracode",
     isMaximum: true,
   });
+  assert.deepEqual(effortStatusLabel(luna, "max"), {
+    label: "ultracode",
+    isMaximum: true,
+  });
   assert.deepEqual(effortStatusLabel(sol, "max"), {
     label: "effort:max",
     isMaximum: false,
   });
+  assert.deepEqual(
+    effortStatusLabel({ id: "standard", reasoning: true }, "high"),
+    { label: "effort:high", isMaximum: false },
+  );
 });
 
 test("/effort and thinking_level_select use model-aware names", async () => {

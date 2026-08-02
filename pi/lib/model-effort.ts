@@ -73,7 +73,8 @@ export function effortStatusLabel(
   effort: string,
 ): { label: string; isMaximum: boolean } {
   const efforts = supportedEfforts(model);
-  const isMaximum = effort === efforts.at(-1);
+  const isMaximumClass = effort === "max" || effort === "ultra";
+  const isMaximum = isMaximumClass && effort === efforts.at(-1);
   return {
     label: isMaximum ? "ultracode" : `effort:${effort}`,
     isMaximum,
