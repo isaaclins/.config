@@ -22,6 +22,7 @@ import {
   slugify,
   worktreesRoot,
 } from "../lib/worktrees.ts";
+import { formatEntries, formatPrune, parseWorktreeArgs } from "../extensions/worktrees.ts";
 
 function run(cwd: string, args: string[]): string {
   return execFileSync("git", args, { cwd, encoding: "utf8" });
@@ -313,6 +314,77 @@ test("pruneStale reports orphan directories and only deletes them when forced", 
   const forced = pruneStale(repo, { force: true });
   assert.deepEqual(forced.orphanDirectories, [stray]);
   assert.equal(existsSync(stray), false);
+});
+
+test("parseWorktreeArgs defaults to list and separates flags from positionals", () => {
+  assert.deepEqual(parseWorktreeArgs(undefined), {
+    command: "list",
+    target: undefined,
+    force: false,
+    dryRun: false,
+  });
+  assert.deepEqual(parseWorktreeArgs("  ADD   Fix Login "), {
+    command: "add",
+    target: "Fix",
+    force: false,
+    dryRun: false,
+  });
+  assert.deepEqual(parseWorktreeArgs("remove alpha --force"), {
+    command: "remove",
+    target: "alpha",
+    force: true,
+    dryRun: false,
+  });
+  assert.deepEqual(parseWorktreeArgs("prune -n"), {
+    command: "prune",
+    target: undefined,
+    force: false,
+    dryRun: true,
+  });
+});
+
+test("formatEntries marks the main worktree and annotates state", () => {
+  const rendered = formatEntries(
+    parseWorktreeList(
+      [
+        "worktree /repo",
+        "HEAD aaaa",
+        "branch refs/heads/main",
+        "",
+        "worktree /repo/.worktrees/gone",
+        "HEAD bbbbbbbbbbbb",
+        "detached",
+        "prunable gone",
+        "",
+      ].join("\n"),
+    ),
+  );
+
+  const lines = rendered.split("\n");
+  assert.match(lines[0], /^\* main\t\/repo$/);
+  assert.match(lines[1], /^ {2}\(detached bbbbbbbb\)\t\/repo\/\.worktrees\/gone {2}\[prunable\]$/);
+});
+
+test("formatPrune renders only non-empty sections", () => {
+  const empty = formatPrune(
+    { prunedWorktrees: [], deletedBranches: [], keptBranches: [], orphanDirectories: [] },
+    false,
+  );
+  assert.equal(empty, "worktree prune\nnothing stale");
+
+  const full = formatPrune(
+    {
+      prunedWorktrees: ["/repo/.worktrees/gone"],
+      deletedBranches: ["wt/gone"],
+      keptBranches: ["wt/keep"],
+      orphanDirectories: ["/repo/.worktrees/stray"],
+    },
+    true,
+  );
+  assert.match(full, /^worktree prune \(dry run\)$/m);
+  assert.match(full, /^stale records:$/m);
+  assert.match(full, /^kept \(unmerged\) branches:$/m);
+  assert.match(full, /^orphan directories:$/m);
 });
 
 test("pruneStale dry run changes nothing", () => {
