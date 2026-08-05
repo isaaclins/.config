@@ -72,13 +72,13 @@ test("timeout restores captured text before newly typed text", async () => {
   assert.equal(state.notifications.length, 1);
 });
 
-test("empty input still aborts and notifies", async () => {
+test("empty input aborts silently", async () => {
   const { ctx, state } = fakeContext("  ");
   const sent: string[] = [];
   await createInterruptSubmitHandler({ sendUserMessage: (text) => sent.push(text) })(ctx);
   assert.equal(state.abortCalled, true);
   assert.deepEqual(sent, []);
-  assert.deepEqual(state.notifications, ["Nothing to send"]);
+  assert.deepEqual(state.notifications, []);
 });
 
 test("double presses do not race sends", async () => {

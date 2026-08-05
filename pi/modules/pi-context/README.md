@@ -8,7 +8,7 @@ This package owns:
 
 - **Compaction/resume** (handover flow): nudge-at-threshold, agent-authored handover summary, exactly-once compaction trigger, and auto-resume after compaction.
 - **Usage visualization** (`/context` command): token estimation, category breakdown, grid rendering, compact LLM-visible summary.
-- **Interrupt-and-submit** (`ctrl+enter`): abort active generation, capture editor text, wait for idle, send.
+- **Interrupt-and-submit** (`ctrl+enter`): abort active generation, capture editor text, wait for idle, send. An empty editor is a plain silent interrupt.
 - **Usage polling lifecycle**: generic interval-based session poller with cleanup.
 
 ## Guarantees

@@ -58,10 +58,9 @@ export function createInterruptSubmitHandler(
     try {
       ctx.abort();
       const capturedText = ctx.ui.getEditorText();
-      if (!capturedText.trim()) {
-        ctx.ui.notify("Nothing to send", "info");
-        return;
-      }
+      // Empty editor: ctrl+enter is a plain interrupt, and interrupting is not
+      // a failure, so it stays silent.
+      if (!capturedText.trim()) return;
 
       ctx.ui.setEditorText("");
       try {
