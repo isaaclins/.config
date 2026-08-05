@@ -16,6 +16,8 @@ export interface TmuxBackendOptions {
   piCommand?: string;
 }
 
+export type TmuxPaneRole = "subagent" | "orchestrator";
+
 function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'\\''`)}'`;
 }
@@ -49,6 +51,26 @@ export class TmuxBackend implements CodriveBackend {
     });
   }
 
+  private async bestEffortPaneOption(args: string[]): Promise<void> {
+    try {
+      await this.exec(args);
+    } catch {
+      // Pane labels are cosmetic and must not block a Pi session.
+    }
+  }
+
+  async setPaneRole(paneId: string, role: TmuxPaneRole): Promise<void> {
+    await this.bestEffortPaneOption([
+      "set-option", "-p", "-t", paneId, "@pi_codrive_role", role,
+    ]);
+  }
+
+  async unsetPaneRole(paneId: string): Promise<void> {
+    await this.bestEffortPaneOption([
+      "set-option", "-p", "-u", "-t", paneId, "@pi_codrive_role",
+    ]);
+  }
+
   async spawn(launch: SpawnLaunch): Promise<BackendSpawnResult> {
     const piArgs = buildPiArguments({
       prompt: launch.prompt,
@@ -73,22 +95,31 @@ export class TmuxBackend implements CodriveBackend {
     envParts.push(`${CHILD_ID_ENV}=${shellQuote(launch.identity.childId)}`);
 
     const command = `${envParts.join(" ")} exec ${launchCmd}`;
+    const cwd = launch.cwd?.trim() || launch.projectRoot;
 
-    const args = [
-      "split-window",
-      this.split === "horizontal" ? "-h" : "-v",
-      "-c", launch.projectRoot,
-      "-P", "-F", "#{pane_id}",
-    ];
-    if (this.size) args.push("-l", String(this.size));
+    // A background child gets its own detached window instead of a split of
+    // whatever the user is currently looking at. The pane id is real either
+    // way, so isAlive/read/send are unaffected and the child is still
+    // reachable for inspection with `tmux select-window`.
+    const args = launch.background
+      ? ["new-window", "-d", "-c", cwd, "-P", "-F", "#{pane_id}"]
+      : [
+          "split-window",
+          this.split === "horizontal" ? "-h" : "-v",
+          "-c", cwd,
+          "-P", "-F", "#{pane_id}",
+        ];
+    if (this.size && !launch.background) args.push("-l", String(this.size));
     args.push(command);
 
+    const verb = launch.background ? "new-window" : "split-window";
     const result = await this.exec(args);
     if (result.code !== 0) {
-      throw new Error(`tmux split-window failed: ${result.stderr || result.stdout || `exit ${result.code}`}`);
+      throw new Error(`tmux ${verb} failed: ${result.stderr || result.stdout || `exit ${result.code}`}`);
     }
     const paneId = result.stdout.trim();
     if (!/^%\d+$/.test(paneId)) throw new Error("tmux returned an invalid pane ID");
+    await this.setPaneRole(paneId, "subagent");
     return { paneId };
   }
 

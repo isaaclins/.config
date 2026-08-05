@@ -12,6 +12,17 @@ export interface ChildIdentity {
 
 export interface SpawnLaunch {
   projectRoot: string;
+  /**
+   * Working directory for the child pane, overriding projectRoot. Used to run
+   * a child inside a git worktree instead of the live tree, so its edits can
+   * never touch the directory the user is working in.
+   */
+  cwd?: string;
+  /**
+   * Launch invisibly: a detached tmux window instead of a split of the user's
+   * current view. The pane id stays real, so isAlive/read/send keep working.
+   */
+  background?: boolean;
   prompt?: string;
   model: string;
   context: "fresh" | "fork";
@@ -60,12 +71,20 @@ export interface SpawnRequest {
   model?: string;
   context?: "fresh" | "fork";
   forkSessionFile?: string;
+  /** Run the child here instead of the session's project root. */
+  cwd?: string;
+  /** Spawn into a detached window so the user's view is never taken over. */
+  background?: boolean;
 }
 
 export interface SpawnedChild {
   childId: string;
   paneId: string;
   model: string;
+  /** Where the child was actually launched: its cwd override or the project root. */
+  cwd: string;
+  /** True when the child was launched into a detached, invisible window. */
+  background: boolean;
   /** The pi session id pre-assigned to this child (fresh launches). */
   piSessionId?: string;
   /** The recorded session file the child was launched with (fork launches). */
@@ -75,6 +94,10 @@ export interface SpawnedChild {
 export interface ResumeRequest {
   childId: string;
   model: string;
+  /** Relaunch here; a worktree child must come back inside its worktree. */
+  cwd?: string;
+  /** Relaunch invisibly, as the original background spawn was. */
+  background?: boolean;
   /** Resume by exact pi session id, emitted as `--session-id <id>`. */
   sessionId?: string;
   /** Resume by session file, emitted as `--session <file>`. */
@@ -151,8 +174,12 @@ export class CodriveController {
         );
       }
     }
+    const cwd = request.cwd?.trim() || this.session.projectRoot;
+    const background = request.background === true;
     const launched = await this.backend.spawn({
       projectRoot: this.session.projectRoot,
+      cwd,
+      background,
       prompt: request.prompt,
       model,
       context,
@@ -183,6 +210,8 @@ export class CodriveController {
       childId,
       paneId: launched.paneId,
       model,
+      cwd,
+      background,
       piSessionId,
       piSessionFile: forkSessionFile,
     };
@@ -200,8 +229,12 @@ export class CodriveController {
     if (!request.sessionId && !request.resumeSessionFile) {
       throw new Error("Resume requires a recorded session id or session file");
     }
+    const cwd = request.cwd?.trim() || this.session.projectRoot;
+    const background = request.background === true;
     const launched = await this.backend.spawn({
       projectRoot: this.session.projectRoot,
+      cwd,
+      background,
       prompt: request.prompt,
       model: request.model,
       context: "fresh",
@@ -229,6 +262,8 @@ export class CodriveController {
       childId: request.childId,
       paneId: launched.paneId,
       model: request.model,
+      cwd,
+      background,
       piSessionId: request.sessionId,
       piSessionFile: request.resumeSessionFile,
     };

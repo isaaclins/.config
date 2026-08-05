@@ -21,7 +21,18 @@ export interface HealthMonitorLike {
 }
 
 export interface SupervisorWake {
-  (input: { pane: string; content: string; details: unknown }): void;
+  (input: {
+    pane: string;
+    content: string;
+    details: unknown;
+    /**
+     * True when this result must not take over the user's view: queue it and
+     * deliver it the next time the orchestrator is active. Set for terminal
+     * reports of background children. Escalations are never quiet, because a
+     * stuck child still needs one interruption to be recoverable.
+     */
+    quiet: boolean;
+  }): void;
 }
 
 export interface SupervisorHistoryEntry {
@@ -47,6 +58,7 @@ export interface DelegationSupervisorOptions {
 interface ChildState {
   childId: string;
   model: string;
+  background: boolean;
   status: ChildStatus;
   currentPane: string;
   paneHistory: string[];
@@ -70,6 +82,7 @@ const DEFAULT_GRACE_MS = 20000;
  *
  * Rules:
  *   terminal report -> wake the orchestrator ONCE, untrack, mark completed
+ *                      (quietly, without a turn, for background children)
  *   interrupt       -> append history, KEEP tracking, arm escalation, no wake
  *   heartbeat/announce -> refresh lastSeen, cancel escalation, no wake
  *   escalation      -> fires at most once per interruption episode, only when
@@ -111,10 +124,13 @@ export class DelegationSupervisor {
     piSessionFile?: string;
     projectRoot: string;
     createdAt?: string;
+    /** Invisible child: its completion is queued instead of interrupting. */
+    background?: boolean;
   }): void {
     const state: ChildState = {
       childId: input.childId,
       model: input.model,
+      background: input.background === true,
       status: "running",
       currentPane: input.paneId,
       paneHistory: [input.paneId],
@@ -149,6 +165,11 @@ export class DelegationSupervisor {
     return childId ? this.byChild.get(childId) : undefined;
   }
 
+  /** True when this pane belongs to an invisible background child. */
+  isBackground(paneId: string): boolean {
+    return this.resolveByPane(paneId)?.background === true;
+  }
+
   isLive(paneId: string): boolean {
     const state = this.resolveByPane(paneId);
     if (!state) return false;
@@ -177,6 +198,7 @@ export class DelegationSupervisor {
     const pane = state.currentPane;
     this.wake({
       pane,
+      quiet: false,
       content:
         `SUBAGENT ${pane} needs attention: ${reason}. ` +
         `The task did not finish and the child is not recovering. ` +
@@ -289,8 +311,15 @@ export class DelegationSupervisor {
     if (state.escalated) return;
     this.wake({
       pane: state.currentPane,
+      quiet: state.background,
       content: `SUBAGENT ${state.currentPane} completed with status ${status}.\n\n${text}`,
-      details: { pane: state.currentPane, report, role: "subagent" },
+      details: {
+        pane: state.currentPane,
+        childId: state.childId,
+        report,
+        role: "subagent",
+        background: state.background,
+      },
     });
   }
 
@@ -390,6 +419,10 @@ export class DelegationSupervisor {
     const relaunched: SpawnedChild = await this.controller.resume({
       childId: state.childId,
       model: state.model,
+      // A relaunched child must come back where it was: a worktree fixer stays
+      // in its worktree, and a background child stays invisible.
+      cwd: state.projectRoot,
+      background: state.background,
       sessionId: state.piSessionId,
       resumeSessionFile: state.piSessionId ? undefined : state.piSessionFile,
       prompt: options.prompt,

@@ -54,7 +54,11 @@ export {
   type ChildReporterOptions,
   type ReporterScheduler,
 } from "./child-reporter.ts";
-export { TmuxBackend, type TmuxBackendOptions } from "./tmux-backend.ts";
+export {
+  TmuxBackend,
+  type TmuxBackendOptions,
+  type TmuxPaneRole,
+} from "./tmux-backend.ts";
 export {
   buildPiArguments,
   createForkedSession,
