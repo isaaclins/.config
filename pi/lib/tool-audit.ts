@@ -277,6 +277,24 @@ const NOTE_FIELD_ORDER: ReadonlyArray<readonly [keyof PapercutFields, string]> =
   ["repro", "repro"],
 ];
 
+/**
+ * Scrub every field before anything is derived from them.
+ *
+ * A note is stored three times over: as `args`, as the `preview` derived from
+ * the result, and as `note`. Redacting only the last one leaves the same
+ * credential sitting in plaintext in the other two, so this runs at the source.
+ */
+export function redactPapercutFields(fields: PapercutFields): PapercutFields {
+  const clean: PapercutFields = {
+    tried: redactInlineSecrets(fields.tried ?? ""),
+    got: redactInlineSecrets(fields.got ?? ""),
+  };
+  if (fields.workaround !== undefined) clean.workaround = redactInlineSecrets(fields.workaround);
+  if (fields.expected !== undefined) clean.expected = redactInlineSecrets(fields.expected);
+  if (fields.repro !== undefined) clean.repro = redactInlineSecrets(fields.repro);
+  return clean;
+}
+
 /** Render the repro-shaped fields into the canonical note string. */
 export function formatPapercutNote(fields: PapercutFields): string {
   const lines: string[] = [];
@@ -319,20 +337,21 @@ export interface NoteRecordInput {
  * repair branch and to dispatch it manually later.
  */
 export function buildNoteRecord(input: NoteRecordInput): AuditRecord {
-  const note = formatPapercutNote(input.fields);
+  const fields = redactPapercutFields(input.fields);
+  const note = formatPapercutNote(fields);
   return buildRecord({
     sessionId: input.sessionId,
     toolCallId: input.toolCallId || `papercut:${randomUUID()}`,
     cwd: input.cwd,
     tool: NOTE_TOOL,
-    args: input.fields,
+    args: fields,
     result: note,
     isError: false,
     endedAt: input.endedAt,
     note,
     owner: input.owner,
     refCallId: input.refCallId,
-    suspects: input.suspects,
+    suspects: input.suspects?.map(redactInlineSecrets),
   });
 }
 

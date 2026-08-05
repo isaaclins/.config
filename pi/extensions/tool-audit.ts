@@ -1,5 +1,4 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { Type } from "typebox";
 import {
   aggregate,
   auditDir,
@@ -112,42 +111,59 @@ export default function (pi: ExtensionAPI) {
       "Keep tried/got concrete and verbatim, and give a repro command that starts from a clean shell whenever you can.",
       "Do not file duplicates of a papercut you already filed this session, and do not file one for a mistake you simply made and corrected.",
     ],
-    parameters: Type.Object({
-      tried: Type.String({ description: "What you were trying to do." }),
-      got: Type.String({ description: "What actually happened, verbatim where possible." }),
-      workaround: Type.Optional(Type.String({ description: "The workaround you used to keep going." })),
-      expected: Type.Optional(Type.String({ description: "What should have happened instead." })),
-      repro: Type.Optional(Type.String({ description: "A command that reproduces this from a clean shell." })),
-      owner: Type.Optional(
-        Type.Union([
-          Type.Literal("config"),
-          Type.Literal("pi"),
-          Type.Literal("model"),
-          Type.Literal("env"),
-        ]),
-      ),
-      refCallId: Type.Optional(
-        Type.String({ description: "The audit call id this is about, from /toolaudit calls." }),
-      ),
-      suspects: Type.Optional(
-        Type.Array(Type.String(), { description: "Repo-relative paths you suspect." }),
-      ),
-    }),
-    async execute(toolCallId, params, _signal, _onUpdate, ctx) {
+    // Plain JSON Schema, not typebox: a loose extension in this directory has
+    // no node_modules of its own, and `typebox` does not resolve from here.
+    parameters: {
+      type: "object",
+      properties: {
+        tried: { type: "string", description: "What you were trying to do." },
+        got: {
+          type: "string",
+          description: "What actually happened, verbatim where possible.",
+        },
+        workaround: {
+          type: "string",
+          description: "The workaround you used to keep going.",
+        },
+        expected: { type: "string", description: "What should have happened instead." },
+        repro: {
+          type: "string",
+          description: "A command that reproduces this from a clean shell.",
+        },
+        owner: {
+          type: "string",
+          enum: ["config", "pi", "model", "env"],
+          description: "Who can fix this: config, pi, model, or env.",
+        },
+        refCallId: {
+          type: "string",
+          description: "The audit call id this is about, from /toolaudit calls.",
+        },
+        suspects: {
+          type: "array",
+          items: { type: "string" },
+          description: "Repo-relative paths you suspect.",
+        },
+      },
+      required: ["tried", "got"],
+    },
+    // Params arrive schema-shaped but unvalidated, so every field is narrowed
+    // here rather than trusted from the annotation.
+    async execute(toolCallId, params: Record<string, unknown>, _signal, _onUpdate, ctx) {
       const record = buildNoteRecord({
         sessionId: resolveSessionId(ctx),
         toolCallId,
         cwd: ctx.cwd,
         fields: {
-          tried: params.tried,
-          got: params.got,
-          workaround: params.workaround,
-          expected: params.expected,
-          repro: params.repro,
+          tried: asText(params.tried) ?? "",
+          got: asText(params.got) ?? "",
+          workaround: asText(params.workaround),
+          expected: asText(params.expected),
+          repro: asText(params.repro),
         },
         owner: isPapercutOwner(params.owner) ? params.owner : undefined,
-        refCallId: params.refCallId,
-        suspects: params.suspects,
+        refCallId: asText(params.refCallId),
+        suspects: asTextList(params.suspects),
       });
 
       writeRecord(dir, record);
@@ -215,4 +231,18 @@ export default function (pi: ExtensionAPI) {
       ctx.ui.notify(formatAgent(records, first), "info");
     },
   });
+}
+
+/** A non-empty string, or undefined. Tool params are unvalidated on arrival. */
+function asText(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+/** The string members of an array param, dropping anything else. */
+function asTextList(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const items = value.filter((entry): entry is string => typeof entry === "string");
+  return items.length > 0 ? items : undefined;
 }

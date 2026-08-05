@@ -163,6 +163,28 @@ test("redactInlineSecrets leaves prose that merely looks credential-shaped", () 
   assert.equal(redactInlineSecrets(innocuous), innocuous);
 });
 
+test("no field of a stored note keeps a credential in plaintext", () => {
+  // A note is persisted three times over: args, the preview derived from the
+  // result, and note. Redacting only one of them is the leak this guards.
+  const record = buildNoteRecord({
+    sessionId: "s1",
+    toolCallId: "leak-probe",
+    cwd: "/repo",
+    fields: {
+      tried: "curl the api with token=hunter2",
+      got: "401 even though token=hunter2 was set",
+      workaround: "exported API_KEY=hunter2 instead",
+      expected: "a 200",
+      repro: "curl -H 'Authorization: Bearer hunter2' localhost",
+    },
+    suspects: ["scripts/deploy.sh?token=hunter2"],
+  });
+
+  const serialized = JSON.stringify(record);
+  assert.equal(serialized.includes("hunter2"), false, serialized);
+  assert.equal(serialized.includes(REDACTED), true);
+});
+
 test("isPapercutOwner accepts only the four known owners", () => {
   for (const owner of ["config", "pi", "model", "env"]) {
     assert.equal(isPapercutOwner(owner), true);
