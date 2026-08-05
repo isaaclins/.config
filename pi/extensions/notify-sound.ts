@@ -1,8 +1,12 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { execFile } from "node:child_process";
-import { writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { writeFileSync, existsSync, mkdirSync, renameSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
+import {
+  createNotificationQueue,
+  type NotificationPayload,
+} from "../lib/notify-queue.ts";
 
 /**
  * Native macOS notification when the agent finishes a prompt:
@@ -14,6 +18,13 @@ import { basename, dirname, join } from "node:path";
  * assets/claude-icon.svg). `open` cannot pass argv to an applet, so the
  * payload is handed over in a file the applet reads.
  *
+ * Posts are serialized and launched with `open -n -W`: an applet is a
+ * single-instance app sharing one payload file, so an overlapping launch
+ * reopens the running instance, which then shows a blocking "Press Run to run
+ * this script" dialog instead of a notification. A new instance per post plus
+ * waiting for it to exit keeps launches and payload writes from overlapping,
+ * which matters on interrupts, where two turns end back to back.
+ *
  * terminal-notifier (the previous mechanism) is dead on macOS 26+: it exits
  * 0 and posts nothing. If the applet ever fails the same way, we fall back
  * to plain osascript, which loses the icon but keeps the notification, and
@@ -23,59 +34,69 @@ import { basename, dirname, join } from "node:path";
 const APPLET = join(homedir(), ".config/pi/assets/Pi Notifier.app");
 const PAYLOAD = join(homedir(), ".cache/pi-notify.txt");
 const SOUND = "Glass";
+/** Upper bound on one post, so a stuck launch cannot wedge the queue. */
+const POST_TIMEOUT_MS = 15_000;
 
 export default function (pi: ExtensionAPI) {
   let promptStartedAt = 0;
+  let reportFailure: (error: string) => void = () => {};
+
+  const queue = createNotificationQueue({
+    post: postNotification,
+    onError: (error) => reportFailure(error),
+  });
 
   pi.on("agent_start", async () => {
     promptStartedAt = Date.now();
   });
 
   pi.on("agent_end", async (event, ctx) => {
-    const title = `pi · ${basename(process.cwd())}`;
-    const subtitle = `Finished in ${formatDuration(Date.now() - promptStartedAt)}`;
-    const message = cleanForToast(extractLastAssistantText(event.messages)) || "Done.";
-
-    notify(title, subtitle, message, (error) => {
+    reportFailure = (error) => {
       ctx?.ui?.notify(`Desktop notification failed: ${error}`, "warning");
+    };
+    queue.enqueue({
+      title: `pi · ${basename(process.cwd())}`,
+      subtitle: `Finished in ${formatDuration(Date.now() - promptStartedAt)}`,
+      message: cleanForToast(extractLastAssistantText(event.messages)) || "Done.",
     });
   });
 }
 
-/** Post via the iconned applet, falling back to osascript, then reporting. */
-function notify(
-  title: string,
-  subtitle: string,
-  message: string,
-  onFailure: (error: string) => void,
-): void {
+/** Post via the iconned applet, falling back to osascript. Throws if both fail. */
+async function postNotification(payload: NotificationPayload): Promise<void> {
   if (existsSync(APPLET)) {
     try {
-      mkdirSync(dirname(PAYLOAD), { recursive: true });
-      writeFileSync(PAYLOAD, `${oneLine(title)}\n${oneLine(subtitle)}\n${oneLine(message)}\n`);
-      execFile("open", ["-a", APPLET], (error) => {
-        if (error) fallback(title, subtitle, message, onFailure);
-      });
+      writePayload(payload);
+      await run("open", ["-n", "-W", "-a", APPLET]);
       return;
     } catch (error) {
       // Fall through to osascript rather than losing the notification.
       void error;
     }
   }
-  fallback(title, subtitle, message, onFailure);
+  const { title, subtitle, message } = payload;
+  await run("osascript", [
+    "-e",
+    `display notification ${quote(message)} with title ${quote(title)}` +
+      ` subtitle ${quote(subtitle)} sound name ${quote(SOUND)}`,
+  ]);
 }
 
-function fallback(
-  title: string,
-  subtitle: string,
-  message: string,
-  onFailure: (error: string) => void,
-): void {
-  const script =
-    `display notification ${quote(message)} with title ${quote(title)}` +
-    ` subtitle ${quote(subtitle)} sound name ${quote(SOUND)}`;
-  execFile("osascript", ["-e", script], (error) => {
-    if (error) onFailure(error.message);
+/** Written whole then renamed, so the applet never reads a half-written payload. */
+function writePayload({ title, subtitle, message }: NotificationPayload): void {
+  mkdirSync(dirname(PAYLOAD), { recursive: true });
+  const staging = `${PAYLOAD}.staging`;
+  writeFileSync(staging, `${oneLine(title)}\n${oneLine(subtitle)}\n${oneLine(message)}\n`);
+  renameSync(staging, PAYLOAD);
+}
+
+/** A timeout means the notification is slow, not lost, so it resolves quietly. */
+function run(command: string, args: string[]): Promise<void> {
+  return new Promise((resolve, reject) => {
+    execFile(command, args, { timeout: POST_TIMEOUT_MS }, (error) => {
+      if (!error || (error as { killed?: boolean }).killed) resolve();
+      else reject(error);
+    });
   });
 }
 
