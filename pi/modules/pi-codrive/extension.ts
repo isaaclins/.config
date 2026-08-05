@@ -1,6 +1,8 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
+import { existsSync, statSync } from "node:fs";
 import { platform } from "node:os";
+import { resolve } from "node:path";
 import {
   DEFAULT_FIXER_MODEL,
   DEFAULT_MODEL,
@@ -346,11 +348,13 @@ export default function piCodrive(pi: ExtensionAPI): void {
       "Spawn a live Pi subagent in a shared tmux pane. The authenticated completion report is delivered directly as a compact custom message. Set context to 'fork' to give the child a branched copy of this conversation so the prompt does not need to restate prior context; default 'fresh' starts blank and requires a self-contained prompt. A transient provider or stream error no longer looks like completion: the pane stays tracked and the orchestrator is only woken on real completion or when a child needs recovery. Use agent_report for history, agent_pane for live inspection or steering, and agent_resume to relaunch a dead or stuck child. One delegation level only.",
     promptGuidelines: [
       "When using spawn_agent, omit model to honor the configured delegation default. Pass model only when the user explicitly requests a different model for that delegation.",
+      "Pass cwd with a worktree path from worktree_create for any child that writes files, so its edits cannot collide with your own working directory. Omit cwd for read-only investigation.",
     ],
     parameters: Type.Object({
       prompt: Type.Optional(Type.String()),
       model: Type.Optional(Type.String()),
       context: Type.Optional(Type.Union([Type.Literal("fresh"), Type.Literal("fork")])),
+      cwd: Type.Optional(Type.String()),
     }),
     async execute(_id, params) {
       if (!controller || !ipc || !session || !store || !supervisor) {
@@ -362,6 +366,7 @@ export default function piCodrive(pi: ExtensionAPI): void {
         prompt: params.prompt,
         model: params.model,
         context: params.context,
+        cwd: resolveSpawnCwd(params.cwd),
       });
 
       supervisor.registerSpawn({
@@ -532,4 +537,22 @@ export default function piCodrive(pi: ExtensionAPI): void {
       };
     },
   });
+}
+
+/**
+ * Validate a caller-supplied spawn cwd.
+ *
+ * A bad path would otherwise surface as an opaque tmux failure, and silently
+ * falling back to the orchestrator's own directory is worse than refusing:
+ * the caller asked for isolation precisely so the child could not write here.
+ */
+function resolveSpawnCwd(cwd: string | undefined): string | undefined {
+  if (cwd === undefined) return undefined;
+  const trimmed = cwd.trim();
+  if (!trimmed) return undefined;
+  const resolved = resolve(trimmed);
+  if (!existsSync(resolved) || !statSync(resolved).isDirectory()) {
+    throw new Error(`spawn_agent cwd is not a directory: ${resolved}`);
+  }
+  return resolved;
 }
