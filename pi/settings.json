@@ -1,9 +1,9 @@
 {
   "collapseChangelog": true,
-  "defaultModel": "claude-haiku-4-5-20251001",
+  "defaultModel": "claude-opus-5",
   "defaultProjectTrust": "always",
   "defaultProvider": "anthropic",
-  "defaultThinkingLevel": "high",
+  "defaultThinkingLevel": "xhigh",
   "doubleEscapeAction": "tree",
   "enabledModels": [
     "claude-opus-5",
@@ -28,17 +28,6 @@
     "~/.config/pi/packages/pi-computer-use-codex-parity"
   ],
   "powerline": {
-    "disabledSegments": [
-      "thinking"
-    ],
-    "layout": {
-      "left": [
-        "model",
-        "custom:effort",
-        "path",
-        "git"
-      ]
-    },
     "customItems": [
       {
         "color": "accent",
@@ -64,6 +53,17 @@
         "prefix": "󰛨 "
       }
     ],
+    "disabledSegments": [
+      "thinking"
+    ],
+    "layout": {
+      "left": [
+        "model",
+        "custom:effort",
+        "path",
+        "git"
+      ]
+    },
     "preset": "default"
   },
   "quietStartup": true,
