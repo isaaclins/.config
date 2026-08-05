@@ -149,9 +149,13 @@ function ensureGitExcludes(cwd: string): void {
   // longer written by this extension); kept excluded for repos that still
   // have one on disk. .pi/memory.jsonl is the current @isaaclins/pi-memory
   // project store.
+  // .worktrees/ is the default delegation worktree root. Excluded up front so
+  // it is never visible in git status, even in a repo where this harness has
+  // not created a worktree yet.
   ensureGitExcluded(cwd, [
     ".pi/memory.local.md",
     ".pi/memory.jsonl",
     ".pi/repo-map.local.md",
+    ".worktrees/",
   ]);
 }

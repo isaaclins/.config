@@ -450,32 +450,31 @@ export function worktreePreamble(assignment: WorktreeAssignment, projectRoot: st
 
 ### 8.1 repo-map (`pi/extensions/repo-memory.ts`)
 
-Two defects surface only inside a worktree:
+Two defects surfaced only inside a worktree. **Both are fixed**; this section
+is kept as the rationale.
 
-1. `ensureGitExcludes` builds `join(cwd, gitDir, "info", "exclude")`. In a
-   linked worktree `git rev-parse --git-dir` returns an absolute path
+1. **Fixed** in `lib/git-excludes.ts`. `ensureGitExcludes` built
+   `join(cwd, gitDir, "info", "exclude")`. In a linked worktree
+   `git rev-parse --git-dir` returns an absolute path
    (`/repo/.git/worktrees/login`), and `path.join` does not reset on an
-   absolute segment, so the result is a nonexistent path under the worktree and
-   the exclude entries are appended to the wrong file (or to a newly created
-   junk tree).
+   absolute segment, so the result was a nonexistent path under the worktree
+   and the exclude entries were appended to a newly created junk tree.
 
-   Fix, exactly:
+   Both halves of the fix matter: `--git-common-dir`, because git reads
+   `info/exclude` from the common dir and a per-worktree copy is ignored, and
+   `resolve` rather than `join`, because the answer is relative in a normal
+   checkout and absolute in a worktree.
 
-```ts
-const gitCommonDir = sh("git rev-parse --git-common-dir", cwd);
-if (!gitCommonDir) return;
-const excludePath = resolve(cwd, gitCommonDir, "info", "exclude");
-```
+   Exclude writing now has a single owner, `pi/lib/git-excludes.ts`, used by
+   both `repo-memory.ts` and `worktrees.ts`, covered by tests that assert from
+   inside a real linked worktree.
 
-   `--git-common-dir` is also semantically right: git reads
-   `info/exclude` from the common dir, so a per-worktree copy would be ignored.
-
-2. `piDir` resolves `.pi` from `--show-toplevel`, which in a worktree is the
-   worktree root. The repo map is then cached per checkout. That is acceptable
-   and arguably correct, since the map contains the branch name and recent
-   commits, which differ per worktree. Keep it, but add `.worktrees/` to the
-   `entries` array in `ensureGitExcludes` so the exclusion exists even in repos
-   where no worktree has been created yet by this harness.
+2. **Fixed.** `piDir` resolves `.pi` from `--show-toplevel`, which in a
+   worktree is the worktree root, so the repo map is cached per checkout. That
+   is kept deliberately: the map carries branch name and recent commits, which
+   genuinely differ per worktree. `.worktrees/` was added to the entries
+   written by `ensureGitExcludes`, so the exclusion exists even in repos where
+   this harness has not created a worktree yet.
 
 Additionally, the map's file tree is built from `git ls-files`, which never
 lists worktree checkouts, so no exclusion is needed there.
