@@ -118,6 +118,19 @@ export class GitWorktrees implements PapercutWorktreeOps {
   }
 
   /**
+   * True when the branch points at the same commit as HEAD, meaning the fixer
+   * has not committed anything yet. Such a branch is trivially "merged", so
+   * cleanup has to ask this before believing that.
+   */
+  async hasNoCommits(branch: string): Promise<boolean> {
+    const [tip, head] = await Promise.all([
+      this.git(["rev-parse", branch]),
+      this.git(["rev-parse", "HEAD"]),
+    ]);
+    return tip.trim() === head.trim();
+  }
+
+  /**
    * Delete a branch with the safe flag. Callers only reach this for branches
    * git itself confirms are merged, so an unreviewed fix can never be lost here.
    */

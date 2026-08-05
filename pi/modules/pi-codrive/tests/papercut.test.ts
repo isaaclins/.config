@@ -9,6 +9,8 @@ import {
   formatJobs,
   parsePapercutEvent,
   parseVerdict,
+  isForeignNote,
+  parseNoteSections,
   touchesRepairMechanism,
   type ChildOutcome,
   type PapercutNote,
@@ -108,6 +110,77 @@ test("the self-protection gate also reads the note body and blocks manual dispat
   assert.equal(evaluateGate(viaPath, { manual: true }).dispatch, false);
 });
 
+test("a workaround that merely names agent tooling is not self-reference", () => {
+  // Observed on the first real batch: a note about a missing typecheck script
+  // was blocked because its workaround mentioned a path under pi-codrive.
+  const incidental = note({
+    note: [
+      "tried: typecheck pi/lib and pi/extensions before committing",
+      "got: no typecheck script exists for pi/",
+      "workaround: borrowed the tsc in pi/modules/pi-codrive/node_modules",
+      "expected: npm --prefix pi run typecheck exists",
+    ].join("\n"),
+    suspects: ["pi/package.json"],
+  });
+
+  assert.equal(touchesRepairMechanism(incidental), false);
+  assert.equal(evaluateGate(incidental).dispatch, true);
+});
+
+test("a marker in repro or expected still blocks, they are not coping text", () => {
+  // repro is the first command the fixer runs, and expected states the change
+  // being requested, so a marker in either aims a fixer at the machinery.
+  const viaRepro = note({
+    note: "tried: run the suite\ngot: it failed\nrepro: npm --prefix pi/modules/pi-codrive test",
+  });
+  const viaExpected = note({
+    note: "tried: pass a cwd to a child\ngot: no way to do it\nexpected: spawn_agent accepts cwd",
+  });
+
+  assert.equal(evaluateGate(viaRepro).dispatch, false);
+  assert.equal(evaluateGate(viaExpected).dispatch, false);
+});
+
+test("the loop's own vocabulary counts as self-reference", () => {
+  const viaVocabulary = note({
+    note: "tried: dispatch a filed note to the background fixer\ngot: the dispatcher spawned two",
+  });
+
+  assert.equal(evaluateGate(viaVocabulary, { manual: true }).dispatch, false);
+});
+
+test("a config note filed in another repo is not repaired here", () => {
+  const foreign = note({ cwd: "/Users/me/Projects/website" });
+
+  assert.equal(isForeignNote(foreign, "/Users/me/.config"), true);
+  const decision = evaluateGate(foreign, { repoRoot: "/Users/me/.config" });
+  assert.equal(decision.dispatch, false);
+  assert.match(decision.reason, /not this repo/);
+
+  // Same repo, and a subdirectory of it, both stay dispatchable.
+  assert.equal(evaluateGate(note({ cwd: "/Users/me/.config" }), { repoRoot: "/Users/me/.config" }).dispatch, true);
+  assert.equal(evaluateGate(note({ cwd: "/Users/me/.config/pi" }), { repoRoot: "/Users/me/.config" }).dispatch, true);
+  // A path that merely shares a prefix is foreign, not a subdirectory.
+  assert.equal(isForeignNote(note({ cwd: "/Users/me/.config-backup" }), "/Users/me/.config"), true);
+});
+
+test("a note in an unrecognised shape is scanned whole, so it fails closed", () => {
+  const freeform = note({ note: "spawn_agent died and I have no idea why" });
+
+  assert.equal(touchesRepairMechanism(freeform), true);
+  assert.equal(evaluateGate(freeform, { manual: true }).dispatch, false);
+});
+
+test("parseNoteSections keeps multi-line values with their label", () => {
+  const sections = parseNoteSections(
+    ["tried: run the suite", "got: it failed", "  with a stack trace", "repro: npm test"].join("\n"),
+  );
+
+  assert.equal(sections.tried, "run the suite");
+  assert.equal(sections.got, "it failed\n  with a stack trace");
+  assert.equal(sections.repro, "npm test");
+});
+
 test("manual dispatch overrides only the owner gate", () => {
   const decision = evaluateGate(note({ owner: "env" }), { manual: true });
   assert.equal(decision.dispatch, true);
@@ -196,7 +269,12 @@ interface FakePort extends PapercutPort {
   };
 }
 
-function fakePort(overrides: Partial<PapercutPort> = {}, worktrees: WorktreeInfo[] = [], merged: string[] = []): FakePort {
+function fakePort(
+  overrides: Partial<PapercutPort> = {},
+  worktrees: WorktreeInfo[] = [],
+  merged: string[] = [],
+  uncommitted: Set<string> = new Set(),
+): FakePort {
   const calls: FakePort["calls"] = { create: [], remove: [], spawn: [], notify: [], deleted: [] };
   let created = 0;
   let spawned = 0;
@@ -223,6 +301,9 @@ function fakePort(overrides: Partial<PapercutPort> = {}, worktrees: WorktreeInfo
       },
       async deleteBranch(branch) {
         calls.deleted.push(branch);
+      },
+      async hasNoCommits(branch) {
+        return uncommitted.has(branch);
       },
     },
     async spawn(input) {
@@ -439,6 +520,40 @@ test("cleanup removes merged papercut worktrees and leaves unmerged ones alone",
   assert.deepEqual(removed, ["papercut/aaaaaaaa"]);
   assert.deepEqual(port.calls.remove, ["/tmp/wt-merged"]);
   assert.deepEqual(port.calls.deleted, ["papercut/aaaaaaaa"]);
+});
+
+test("cleanup never removes a branch that has no commits yet", async () => {
+  // A branch created at HEAD is trivially an ancestor of HEAD, so git calls it
+  // merged from the moment the fixer's worktree exists. Removing it there would
+  // delete a running child's checkout.
+  const port = fakePort(
+    {},
+    [{ path: "/tmp/wt-fresh", branch: "papercut/cccccccc" }],
+    ["papercut/cccccccc"],
+    new Set(["papercut/cccccccc"]),
+  );
+  const dispatcher = new PapercutDispatcher({ port });
+
+  assert.deepEqual(await dispatcher.cleanupMerged(), []);
+  assert.deepEqual(port.calls.remove, []);
+  assert.deepEqual(port.calls.deleted, []);
+});
+
+test("cleanup skips a branch whose job is still active", async () => {
+  const listing: WorktreeInfo[] = [];
+  const merged: string[] = [];
+  const port = fakePort({}, listing, merged);
+  const dispatcher = new PapercutDispatcher({ port });
+  await dispatcher.file(note());
+  const job = dispatcher.list()[0];
+  assert.equal(job.phase, "fixing");
+
+  // The fixer has committed, so hasNoCommits is false, but the job is live.
+  listing.push({ path: "/tmp/wt-active", branch: job.branch });
+  merged.push(job.branch);
+
+  assert.deepEqual(await dispatcher.cleanupMerged(), []);
+  assert.deepEqual(port.calls.remove, []);
 });
 
 test("cleanup does nothing when no papercut branch is merged", async () => {

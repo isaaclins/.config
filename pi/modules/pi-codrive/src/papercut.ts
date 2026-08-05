@@ -22,6 +22,8 @@
  * tmux, or a live agent.
  */
 
+import { sep } from "node:path";
+
 /** Event-bus channel the tool-audit extension announces papercuts on. */
 export const PAPERCUT_FILED_EVENT = "papercut:filed";
 
@@ -34,8 +36,8 @@ export const AUTO_DISPATCH_OWNER: PapercutOwner = "config";
 
 /**
  * Substrings that mean "this note is about the repair mechanism itself".
- * Deliberately broad: a false positive only costs a human review, while a
- * false negative lets a junior agent rewrite the machinery that supervises it.
+ * A false positive only costs a human review, while a false negative lets a
+ * junior agent rewrite the machinery that supervises it.
  */
 export const SELF_REFERENCE_MARKERS: readonly string[] = [
   "codrive",
@@ -43,7 +45,49 @@ export const SELF_REFERENCE_MARKERS: readonly string[] = [
   "agent_resume",
   "agent_pane",
   "agent_report",
+  // The loop's own vocabulary. A note about papercut repair is a note about
+  // this machinery even when it names none of the tools above.
+  "papercut",
+  "dispatcher",
 ];
+
+/**
+ * Every section except `workaround` decides self-reference.
+ *
+ * `workaround` is excluded because it describes how the agent coped, and it
+ * names agent tooling in passing all the time ("polled with agent_report
+ * instead"). Matching there refused most legitimate notes: on the first real
+ * batch it blocked a note about a missing typecheck script purely because the
+ * workaround mentioned a path under pi-codrive's node_modules.
+ *
+ * `repro` and `expected` must stay in. `repro` is the command the fixer runs
+ * first, so a repro pointing into pi-codrive sends the fixer straight there,
+ * and `expected` states the change being asked for.
+ */
+const PROBLEM_SECTIONS: readonly string[] = ["tried", "got", "expected", "repro"];
+const SECTION_LINE = /^(tried|got|workaround|expected|repro):\s?(.*)$/;
+
+/**
+ * Split a formatted note back into its labelled sections.
+ *
+ * Values may span lines, so an unlabelled line continues the section above it.
+ * Returns an empty map for a note that is not in the canonical shape, which
+ * callers must treat as "cannot tell" rather than "nothing found".
+ */
+export function parseNoteSections(note: string): Record<string, string> {
+  const sections: Record<string, string> = {};
+  let current: string | undefined;
+  for (const line of note.split("\n")) {
+    const match = SECTION_LINE.exec(line);
+    if (match) {
+      current = match[1];
+      sections[current] = match[2] ?? "";
+      continue;
+    }
+    if (current) sections[current] = `${sections[current]}\n${line}`;
+  }
+  return sections;
+}
 
 export interface PapercutNote {
   /** The note's own audit call id. Identifies it and names its branch. */
@@ -94,15 +138,31 @@ export function parsePapercutEvent(data: unknown): PapercutNote | undefined {
   };
 }
 
-/** True when a note's paths or text point at the repair mechanism itself. */
+/**
+ * True when a note's problem statement or suspected paths point at the repair
+ * mechanism itself.
+ *
+ * Suspects always count, because they are where a fixer would edit. A note in
+ * an unrecognised shape is scanned whole, so an odd format fails closed.
+ */
 export function touchesRepairMechanism(note: PapercutNote): boolean {
-  const haystack = [note.note, ...note.suspects].join("\n").toLowerCase();
+  const sections = parseNoteSections(note.note);
+  const problem = PROBLEM_SECTIONS.map((name) => sections[name] ?? "");
+  const scanned = Object.keys(sections).length > 0 ? problem : [note.note];
+  const haystack = [...scanned, ...note.suspects].join("\n").toLowerCase();
   return SELF_REFERENCE_MARKERS.some((marker) => haystack.includes(marker));
 }
 
 export interface GateDecision {
   dispatch: boolean;
   reason: string;
+}
+
+/** True when a note was filed somewhere other than the repo being repaired. */
+export function isForeignNote(note: PapercutNote, repoRoot: string): boolean {
+  if (!repoRoot || !note.cwd) return false;
+  const root = repoRoot.endsWith(sep) ? repoRoot.slice(0, -1) : repoRoot;
+  return note.cwd !== root && !note.cwd.startsWith(`${root}${sep}`);
 }
 
 /**
@@ -114,12 +174,21 @@ export interface GateDecision {
  */
 export function evaluateGate(
   note: PapercutNote,
-  options: { manual?: boolean } = {},
+  options: { manual?: boolean; repoRoot?: string } = {},
 ): GateDecision {
   if (touchesRepairMechanism(note)) {
     return {
       dispatch: false,
       reason: "the note points at pi-codrive, the repair mechanism itself; human review only",
+    };
+  }
+  // The audit log is global, so a note filed in another project reaches this
+  // dispatcher. Repairing it here would branch the wrong repo and hand a fixer
+  // a problem that does not exist in it.
+  if (options.repoRoot && isForeignNote(note, options.repoRoot)) {
+    return {
+      dispatch: false,
+      reason: `the note was filed in ${note.cwd}, not this repo; human review only`,
     };
   }
   if (note.owner !== AUTO_DISPATCH_OWNER) {
@@ -268,6 +337,13 @@ export type PapercutPhase =
   | "needs-human"
   | "blocked";
 
+/** Phases where a child may still be writing inside the worktree. */
+const ACTIVE_PHASES: ReadonlySet<PapercutPhase> = new Set<PapercutPhase>([
+  "queued",
+  "fixing",
+  "verifying",
+]);
+
 export interface PapercutJob {
   note: PapercutNote;
   branch: string;
@@ -300,6 +376,8 @@ export interface PapercutWorktreeOps {
   listPapercutWorktrees(): Promise<WorktreeInfo[]>;
   mergedPapercutBranches(): Promise<string[]>;
   deleteBranch(branch: string): Promise<void>;
+  /** True when the branch has no commits of its own yet, so its tip is HEAD. */
+  hasNoCommits(branch: string): Promise<boolean>;
 }
 
 export interface PapercutPort {
@@ -355,7 +433,7 @@ export class PapercutDispatcher {
 
   /** Record a freshly filed papercut and start repairing it when allowed. */
   async file(note: PapercutNote): Promise<GateDecision> {
-    const decision = evaluateGate(note);
+    const decision = evaluateGate(note, { repoRoot: this.port.repoRoot });
     if (this.jobs.has(note.id)) return decision;
     this.jobs.set(note.id, {
       note,
@@ -375,7 +453,7 @@ export class PapercutDispatcher {
     if (job.phase === "fixing" || job.phase === "verifying") {
       return { dispatch: false, reason: `papercut ${noteId} is already ${job.phase}` };
     }
-    const decision = evaluateGate(job.note, { manual: true });
+    const decision = evaluateGate(job.note, { manual: true, repoRoot: this.port.repoRoot });
     if (!decision.dispatch) {
       job.phase = "blocked";
       job.reason = decision.reason;
@@ -589,13 +667,28 @@ export class PapercutDispatcher {
    * Remove worktrees whose papercut branch is already merged, and delete those
    * branches. Unmerged work is left alone: cleanup must never destroy a fix a
    * human has not looked at yet.
+   *
+   * "Merged" alone is not enough to be safe. A branch created at HEAD with no
+   * commits on it yet is trivially an ancestor of HEAD, so git reports it as
+   * merged, and that is exactly the state a fixer is in from the moment its
+   * worktree exists until its first commit. Cleaning that up would delete the
+   * checkout out from under a running child. Active jobs are skipped by phase,
+   * and any branch with no commits is skipped regardless of phase, because a
+   * detached background fixer can outlive the session that started it.
    */
   async cleanupMerged(): Promise<string[]> {
     const merged = new Set(await this.port.worktrees.mergedPapercutBranches());
     if (merged.size === 0) return [];
+    const active = new Set(
+      [...this.jobs.values()]
+        .filter((job) => ACTIVE_PHASES.has(job.phase))
+        .map((job) => job.branch),
+    );
     const removed: string[] = [];
     for (const worktree of await this.port.worktrees.listPapercutWorktrees()) {
       if (!worktree.branch || !merged.has(worktree.branch)) continue;
+      if (active.has(worktree.branch)) continue;
+      if (await this.port.worktrees.hasNoCommits(worktree.branch)) continue;
       await this.port.worktrees.remove(worktree.path);
       await this.port.worktrees.deleteBranch(worktree.branch);
       removed.push(worktree.branch);

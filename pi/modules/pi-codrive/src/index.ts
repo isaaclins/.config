@@ -95,6 +95,8 @@ export {
   buildVerifierPrompt,
   evaluateGate,
   formatJobs,
+  isForeignNote,
+  parseNoteSections,
   parsePapercutEvent,
   parseVerdict,
   touchesRepairMechanism,
