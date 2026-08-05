@@ -93,8 +93,10 @@ Reporting has two surfaces:
   - `/toolaudit show <call-id>` full detail for one call: every stored field,
     the complete redacted args pretty-printed as JSON, and the complete result
     text.
+  - `/toolaudit notes` papercuts filed so far, newest first, with owner,
+    the call each one refers to, and suspected paths.
   - `/toolaudit <agent-id>` that agent's calls in detail.
-  Argument completion suggests `calls`, `last`, `show`, and `errors`.
+  Argument completion suggests `calls`, `last`, `show`, `errors`, and `notes`.
 - A dependency-free CLI for use outside the TUI:
 
   ```sh
@@ -103,11 +105,30 @@ Reporting has two surfaces:
   node --experimental-strip-types ~/.config/pi/lib/tool-audit-cli.ts calls
   node --experimental-strip-types ~/.config/pi/lib/tool-audit-cli.ts last 10
   node --experimental-strip-types ~/.config/pi/lib/tool-audit-cli.ts show <call-id>
+  node --experimental-strip-types ~/.config/pi/lib/tool-audit-cli.ts notes
+  node --experimental-strip-types ~/.config/pi/lib/tool-audit-cli.ts note --tried T --got G
+  node --experimental-strip-types ~/.config/pi/lib/tool-audit-cli.ts prune 30
   node --experimental-strip-types ~/.config/pi/lib/tool-audit-cli.ts <agent-id>
   ```
 
+### Papercuts
+
+The `papercut` tool files a short, repro-shaped note (`tried` / `got` /
+`workaround` / `expected` / `repro`) when an agent hits harness friction it
+personally experienced: a retried shell command, a tool that returned unusable
+results, an invented workaround, a capability that stopped working. Notes are
+stored as ordinary audit records with tool `note`, so they inherit the same
+redaction and truncation, plus an `owner` of `config`, `pi`, `model`, or `env`.
+
+Filing one changes nothing and interrupts nobody. Each note is announced on
+Pi's shared event bus as `papercut:filed`; `pi-codrive` subscribes and runs the
+background repair loop for `owner: "config"` notes (see that module's README).
+
+Retention (`prune`) never deletes a note record, only ordinary calls.
+
 Core logic lives in `lib/tool-audit.ts` (record shaping, redaction,
-truncation, aggregation, formatting) and is covered by `tests/tool-audit.test.ts`.
+truncation, aggregation, formatting, papercuts, retention) and is covered by
+`tests/tool-audit.test.ts` and `tests/papercut.test.ts`.
 
 ## Security defaults
 
