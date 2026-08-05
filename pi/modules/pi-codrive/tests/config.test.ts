@@ -4,11 +4,21 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { DEFAULT_MODEL, DEFAULT_THINKING, loadCodriveConfig } from "../src/config.ts";
+import {
+  DEFAULT_FIXER_MODEL,
+  DEFAULT_MODEL,
+  DEFAULT_THINKING,
+  loadCodriveConfig,
+} from "../src/config.ts";
 
 test("built-in delegation defaults are Luna Max", () => {
   assert.equal(DEFAULT_MODEL, "openai-codex/gpt-5.6-luna");
   assert.equal(DEFAULT_THINKING, "max");
+});
+
+test("papercut repair defaults to a cheap model, separate from the delegation default", () => {
+  assert.equal(DEFAULT_FIXER_MODEL, "anthropic/claude-haiku-4-5");
+  assert.notEqual(DEFAULT_FIXER_MODEL, DEFAULT_MODEL);
 });
 
 test("loadCodriveConfig returns the file's model and thinking when present and valid", () => {
@@ -18,7 +28,22 @@ test("loadCodriveConfig returns the file's model and thinking when present and v
 
   const config = loadCodriveConfig(configPath);
 
-  assert.deepEqual(config, { model: "anthropic/claude-opus-4-8", thinking: "high" });
+  assert.deepEqual(config, {
+    model: "anthropic/claude-opus-4-8",
+    thinking: "high",
+    fixerModel: DEFAULT_FIXER_MODEL,
+  });
+});
+
+test("loadCodriveConfig honors an explicit fixerModel and ignores a blank one", () => {
+  const directory = mkdtempSync(join(tmpdir(), "pi-codrive-config-fixer-"));
+  const configPath = join(directory, "config.json");
+
+  writeFileSync(configPath, JSON.stringify({ fixerModel: "anthropic/claude-haiku-9" }));
+  assert.equal(loadCodriveConfig(configPath).fixerModel, "anthropic/claude-haiku-9");
+
+  writeFileSync(configPath, JSON.stringify({ fixerModel: "   " }));
+  assert.equal(loadCodriveConfig(configPath).fixerModel, DEFAULT_FIXER_MODEL);
 });
 
 test("loadCodriveConfig returns the default model when the file does not exist", () => {
@@ -27,7 +52,11 @@ test("loadCodriveConfig returns the default model when the file does not exist",
 
   const config = loadCodriveConfig(configPath);
 
-  assert.deepEqual(config, { model: DEFAULT_MODEL, thinking: DEFAULT_THINKING });
+  assert.deepEqual(config, {
+    model: DEFAULT_MODEL,
+    thinking: DEFAULT_THINKING,
+    fixerModel: DEFAULT_FIXER_MODEL,
+  });
 });
 
 test("loadCodriveConfig throws an actionable error when the file is malformed JSON", () => {
@@ -51,17 +80,20 @@ test("loadCodriveConfig falls back to defaults for missing model or thinking fie
   assert.deepEqual(loadCodriveConfig(configPath), {
     model: DEFAULT_MODEL,
     thinking: "low",
+    fixerModel: DEFAULT_FIXER_MODEL,
   });
 
   writeFileSync(configPath, JSON.stringify({ model: "anthropic/claude-opus-4-8" }));
   assert.deepEqual(loadCodriveConfig(configPath), {
     model: "anthropic/claude-opus-4-8",
     thinking: DEFAULT_THINKING,
+    fixerModel: DEFAULT_FIXER_MODEL,
   });
 
   writeFileSync(configPath, JSON.stringify({ model: "   ", thinking: "   " }));
   assert.deepEqual(loadCodriveConfig(configPath), {
     model: DEFAULT_MODEL,
     thinking: DEFAULT_THINKING,
+    fixerModel: DEFAULT_FIXER_MODEL,
   });
 });

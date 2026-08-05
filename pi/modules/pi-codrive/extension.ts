@@ -1,7 +1,12 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { platform } from "node:os";
-import { DEFAULT_MODEL, DEFAULT_THINKING, loadCodriveConfig } from "./src/config.ts";
+import {
+  DEFAULT_FIXER_MODEL,
+  DEFAULT_MODEL,
+  DEFAULT_THINKING,
+  loadCodriveConfig,
+} from "./src/config.ts";
 import {
   captureChildIpcEnvironment,
   createHarnessSession,
@@ -11,9 +16,15 @@ import {
   CodriveController,
   DelegationSupervisor,
   defaultRuntimeRoot,
+  formatJobs,
+  GitWorktrees,
   isCodriveChildEnvironment,
+  isGitRepository,
   NONCE_ENV,
   PaneHealthMonitor,
+  PAPERCUT_FILED_EVENT,
+  PapercutDispatcher,
+  parsePapercutEvent,
   RuntimeStore,
   ReportServer,
   sendEnvelope,
@@ -21,8 +32,10 @@ import {
   SOCKET_ENV,
   TmuxBackend,
   truncateReportText,
+  type CodriveReport,
   type HarnessSession,
   type OutgoingEnvelope,
+  type PapercutJob,
   type ReportServerHandle,
   type SpawnedChild,
 } from "./src/index.ts";
@@ -30,6 +43,31 @@ import {
 const HEALTH_INTERVAL_MS = 5000;
 const PANE = /^%\d+$/;
 const REPORT_MESSAGE = "pi-codrive-report";
+const PAPERCUT_MESSAGE = "pi-codrive-papercut";
+
+function describe(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/** Full detail for one papercut, including both agents' reports. */
+function formatJobDetail(job: PapercutJob): string {
+  const lines = [
+    `papercut ${job.note.id}`,
+    `phase:    ${job.phase}`,
+    `owner:    ${job.note.owner ?? "unassigned"}`,
+    `branch:   ${job.branch}`,
+    `worktree: ${job.worktreePath ?? "(none)"}`,
+    `attempts: ${job.attempts}`,
+  ];
+  if (job.reason) lines.push(`reason:   ${job.reason}`);
+  if (job.diffStat) lines.push(`diff:     ${job.diffStat}`);
+  if (job.note.refCallId) lines.push(`about:    call ${job.note.refCallId}`);
+  if (job.note.suspects.length > 0) lines.push(`suspects: ${job.note.suspects.join(", ")}`);
+  lines.push("", "note:", job.note.note);
+  if (job.lastFixerReport) lines.push("", "fixer report:", job.lastFixerReport);
+  if (job.lastVerifierReport) lines.push("", "verifier report:", job.lastVerifierReport);
+  return lines.join("\n");
+}
 
 export default function piCodrive(pi: ExtensionAPI): void {
   // Every listener is registered synchronously at top level. A child's own
@@ -110,9 +148,31 @@ export default function piCodrive(pi: ExtensionAPI): void {
   let controller: CodriveController | undefined;
   let monitor: PaneHealthMonitor | undefined;
   let supervisor: DelegationSupervisor | undefined;
+  let orchestratorPaneId: string | undefined;
+  let tmuxBackend: TmuxBackend | undefined;
+  let dispatcher: PapercutDispatcher | undefined;
+  let unsubscribePapercut: (() => void) | undefined;
+
+  /** Queue a papercut summary. It must never take over the user's view. */
+  function queuePapercutSummary(summary: string): void {
+    const output = truncateReportText(summary);
+    pi.sendMessage(
+      { customType: PAPERCUT_MESSAGE, content: output.content, display: true },
+      { triggerTurn: false, deliverAs: "nextTurn" },
+    );
+  }
 
   pi.on("session_start", async (_event, ctx) => {
     if (platform() !== "darwin" && platform() !== "linux") return;
+
+    const backend = new TmuxBackend({ piCommand: "pi" });
+    tmuxBackend = backend;
+    orchestratorPaneId = undefined;
+    const paneId = process.env.TMUX_PANE;
+    if (paneId && PANE.test(paneId)) {
+      orchestratorPaneId = paneId;
+      await backend.setPaneRole(paneId, "orchestrator");
+    }
 
     const runtimeRoot = defaultRuntimeRoot();
     store = new RuntimeStore(runtimeRoot);
@@ -125,14 +185,14 @@ export default function piCodrive(pi: ExtensionAPI): void {
     });
     store.saveSession(session);
 
-    const backend = new TmuxBackend({ piCommand: "pi" });
-
     let defaultModel = DEFAULT_MODEL;
     let defaultThinking = DEFAULT_THINKING;
+    let fixerModel = DEFAULT_FIXER_MODEL;
     try {
       const config = loadCodriveConfig();
       defaultModel = config.model ?? DEFAULT_MODEL;
       defaultThinking = config.thinking ?? DEFAULT_THINKING;
+      fixerModel = config.fixerModel ?? DEFAULT_FIXER_MODEL;
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       ctx.ui?.notify(
@@ -172,20 +232,102 @@ export default function piCodrive(pi: ExtensionAPI): void {
       controller,
       backend,
       monitor,
-      wake: ({ pane, content, details }) => {
+      wake: ({ pane, content, details, quiet }) => {
+        // A papercut fixer or verifier is the dispatcher's business, not the
+        // user's: consume it here so the loop stays invisible end to end.
+        const info = details as
+          | { childId?: string; report?: CodriveReport; status?: string }
+          | undefined;
+        const childId = info?.childId;
+        if (childId && dispatcher?.ownsChild(childId)) {
+          void dispatcher
+            .handleChildOutcome({
+              childId,
+              status: info?.report?.status ?? "error",
+              text: info?.report?.assistantText ?? content,
+            })
+            .catch((error: unknown) => {
+              queuePapercutSummary(
+                `Papercut dispatch failed while handling child ${childId}: ${describe(error)}`,
+              );
+            });
+          return;
+        }
+
         const output = truncateReportText(content);
+        // A quiet result belongs to an invisible background child: queue it for
+        // the orchestrator's next turn instead of yanking the user's view.
         pi.sendMessage(
           { customType: REPORT_MESSAGE, content: output.content, display: true, details },
-          { triggerTurn: true, deliverAs: "followUp" },
+          quiet
+            ? { triggerTurn: false, deliverAs: "nextTurn" }
+            : { triggerTurn: true, deliverAs: "followUp" },
         );
         void pane;
       },
     });
 
     monitor.start();
+
+    // --- Papercut self-repair loop ---------------------------------------
+    // A reload runs session_start again, so drop any earlier subscription
+    // before making a new one; two dispatchers would double-spawn fixers.
+    unsubscribePapercut?.();
+    unsubscribePapercut = undefined;
+    dispatcher = undefined;
+
+    const activeController = controller;
+    const activeSupervisor = supervisor;
+    const repoRoot = session.projectRoot;
+    if (!(await isGitRepository(repoRoot))) return;
+
+    dispatcher = new PapercutDispatcher({
+      port: {
+        repoRoot,
+        worktrees: new GitWorktrees({ repoRoot }),
+        async spawn({ cwd, prompt }) {
+          const child = await activeController.spawn({
+            prompt,
+            model: fixerModel,
+            context: "fresh",
+            cwd,
+            background: true,
+          });
+          activeSupervisor.registerSpawn({
+            childId: child.childId,
+            paneId: child.paneId,
+            model: child.model,
+            piSessionId: child.piSessionId,
+            piSessionFile: child.piSessionFile,
+            projectRoot: child.cwd,
+            background: true,
+          });
+          return child.childId;
+        },
+        notify: queuePapercutSummary,
+      },
+    });
+
+    unsubscribePapercut = pi.events.on(PAPERCUT_FILED_EVENT, (data) => {
+      const note = parsePapercutEvent(data);
+      if (!note) return;
+      void dispatcher?.file(note).catch((error: unknown) => {
+        queuePapercutSummary(`Papercut ${note.id} could not be dispatched: ${describe(error)}`);
+      });
+    });
   });
 
   pi.on("session_shutdown", async () => {
+    unsubscribePapercut?.();
+    unsubscribePapercut = undefined;
+    dispatcher = undefined;
+
+    if (tmuxBackend && orchestratorPaneId) {
+      await tmuxBackend.unsetPaneRole(orchestratorPaneId);
+    }
+    orchestratorPaneId = undefined;
+    tmuxBackend = undefined;
+
     monitor?.stop();
     monitor = undefined;
     supervisor?.teardown();
@@ -228,7 +370,8 @@ export default function piCodrive(pi: ExtensionAPI): void {
         model: spawned.model,
         piSessionId: spawned.piSessionId,
         piSessionFile: spawned.piSessionFile,
-        projectRoot: session.projectRoot,
+        projectRoot: spawned.cwd,
+        background: spawned.background,
       });
 
       return {
@@ -240,6 +383,66 @@ export default function piCodrive(pi: ExtensionAPI): void {
         ],
         details: { pane: spawned.paneId },
       };
+    },
+  });
+
+  pi.registerCommand("papercuts", {
+    description:
+      "Papercut self-repair: list jobs, `show <id>`, `dispatch <id>` to force one, `cleanup` to remove merged worktrees",
+    getArgumentCompletions(prefix) {
+      const options = ["show", "dispatch", "cleanup"];
+      const matches = options
+        .filter((option) => option.startsWith(prefix.toLowerCase()))
+        .map((option) => ({ value: option, label: option }));
+      return matches.length > 0 ? matches : null;
+    },
+    handler: async (args, ctx) => {
+      if (!dispatcher) {
+        ctx.ui.notify("papercuts: not active (no git repository, or session not initialized)", "warning");
+        return;
+      }
+      const parts = args.trim().split(/\s+/).filter(Boolean);
+      const cmd = (parts[0] ?? "").toLowerCase();
+
+      if (!cmd) {
+        ctx.ui.notify(formatJobs(dispatcher.list()), "info");
+        return;
+      }
+      if (cmd === "show") {
+        const job = dispatcher.get(parts[1] ?? "");
+        if (!job) {
+          ctx.ui.notify(`papercuts: no papercut ${parts[1] ?? ""} in this session`, "warning");
+          return;
+        }
+        ctx.ui.notify(formatJobDetail(job), "info");
+        return;
+      }
+      if (cmd === "dispatch") {
+        const id = parts[1] ?? "";
+        if (!id) {
+          ctx.ui.notify("papercuts: usage: /papercuts dispatch <id>", "warning");
+          return;
+        }
+        const decision = await dispatcher.dispatchById(id);
+        ctx.ui.notify(
+          decision.dispatch
+            ? `papercuts: dispatched ${id} (${decision.reason})`
+            : `papercuts: refused ${id} (${decision.reason})`,
+          decision.dispatch ? "info" : "warning",
+        );
+        return;
+      }
+      if (cmd === "cleanup") {
+        const removed = await dispatcher.cleanupMerged();
+        ctx.ui.notify(
+          removed.length === 0
+            ? "papercuts: nothing to clean up (unmerged branches are never removed)"
+            : `papercuts: removed ${removed.length} merged worktree(s): ${removed.join(", ")}`,
+          "info",
+        );
+        return;
+      }
+      ctx.ui.notify("papercuts: usage: /papercuts [show <id> | dispatch <id> | cleanup]", "warning");
     },
   });
 

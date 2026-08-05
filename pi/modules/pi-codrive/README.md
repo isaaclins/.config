@@ -59,11 +59,33 @@ Then in your Pi configuration, add the package so its extension is loaded:
 ```json
 {
   "model": "openai-codex/gpt-5.6-luna",
-  "thinking": "max"
+  "thinking": "max",
+  "fixerModel": "anthropic/claude-haiku-4-5"
 }
 ```
 
-Omit `model` when calling `spawn_agent` to use these defaults. Pass `model` only for an explicit override; append a thinking suffix such as `:high` when that override also needs a different thinking level.
+Omit `model` when calling `spawn_agent` to use these defaults. Pass `model` only for an explicit override; append a thinking suffix such as `:high` when that override also needs a different thinking level. `fixerModel` is used only by the papercut repair loop below.
+
+## Papercut self-repair
+
+When an agent hits harness friction it personally experienced, it files a papercut with the `papercut` tool (owned by the tool-audit extension) and keeps working. The record is announced on the shared event bus as `papercut:filed`, and this module reacts to it.
+
+The loop, per papercut:
+
+1. **Gate.** Only `owner: "config"` notes auto-dispatch. A note whose text or suspected paths mention this module is never auto-dispatched, not even manually, because a bad fix must not be able to take out the repair mechanism. At most one repair runs at a time; the rest queue.
+2. **Isolate.** `git worktree add -b papercut/<note-id> <tmp> HEAD`. Nothing ever runs in the live checkout.
+3. **Fix.** A background junior agent on `fixerModel` is spawned into a detached tmux window with its cwd inside the worktree. Its entire prompt is the repro-shaped note plus hard boundaries: reproduce first, fix the root cause, run the owning module's tests and typecheck, commit on the branch, never leave the worktree, never spawn agents.
+4. **Verify blind.** A second agent gets only the branch name and the original note, never the fixer's reasoning, on a detached checkout of the branch. It re-runs the repro and the module's checks and ends with `VERDICT: PASS` or `VERDICT: FAIL`. Anything that is not an explicit PASS counts as FAIL.
+5. **Queue.** A pass queues a non-interrupting summary with the branch, the diffstat, and copy-pasteable merge and discard commands. A fail retries the fixer once with the verifier's rejection appended, then hands the papercut to a human with both reports.
+
+Invariants:
+
+- Nothing is ever merged automatically. Fixes exist only as commits on a `papercut/*` branch.
+- The user's working tree is never modified and the user is never interrupted: results are delivered with `deliverAs: "nextTurn"`.
+- Owners `pi`, `model`, and `env` are recorded and listed, never auto-dispatched.
+- Undo is always `git worktree remove --force <path> && git branch -D papercut/<id>`.
+
+Use `/papercuts` to list jobs, `/papercuts show <id>` for full detail including both reports, `/papercuts dispatch <id>` to force one past the owner gate, and `/papercuts cleanup` to remove worktrees for papercut branches git reports as already merged. Cleanup never touches an unmerged branch.
 
 ## Tools exposed
 
@@ -73,6 +95,10 @@ Omit `model` when calling `spawn_agent` to use these defaults. Pass `model` only
 | `agent_report` | Read lifecycle history for a pane, including interruptions and farewells (recovery/history API). Historical pane ids still resolve after a resume. |
 | `agent_pane` | Read output from or send text to a live subagent pane. After a resume the current pane is used even if you pass an old pane id. |
 | `agent_resume` | Relaunch a dead or stuck subagent into a fresh pane, resuming its own recorded pi session with the same childId. Refuses a live healthy child unless `force`. |
+
+Commands: `/papercuts` (see above).
+
+Spawns can also be requested with `cwd` (run the child in a worktree instead of the project root) and `background` (a detached tmux window instead of a split of the user's view, with completion queued rather than interrupting). The papercut loop uses both; `spawn_agent` itself stays foreground.
 
 ## Upstream seam note
 

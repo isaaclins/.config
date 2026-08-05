@@ -5,6 +5,8 @@ import { join } from "node:path";
 export interface CodriveExternalConfig {
   model?: string;
   thinking?: string;
+  /** Model for background papercut fixers and verifiers. Cheap on purpose. */
+  fixerModel?: string;
 }
 
 /**
@@ -15,6 +17,13 @@ export interface CodriveExternalConfig {
  */
 export const DEFAULT_MODEL = "openai-codex/gpt-5.6-luna";
 export const DEFAULT_THINKING = "max";
+
+/**
+ * Papercut repair runs on a deliberately cheap model. The work is small and
+ * bounded, two agents run per papercut, and a wrong answer is caught by the
+ * verifier and then by a human, so paying top-model rates here buys nothing.
+ */
+export const DEFAULT_FIXER_MODEL = "anthropic/claude-haiku-4-5";
 
 export function defaultConfigPath(): string {
   const configHome = process.env.XDG_CONFIG_HOME || join(homedir(), ".config");
@@ -32,7 +41,7 @@ export function defaultConfigPath(): string {
  */
 export function loadCodriveConfig(configPath: string = defaultConfigPath()): CodriveExternalConfig {
   if (!existsSync(configPath)) {
-    return { model: DEFAULT_MODEL, thinking: DEFAULT_THINKING };
+    return { model: DEFAULT_MODEL, thinking: DEFAULT_THINKING, fixerModel: DEFAULT_FIXER_MODEL };
   }
 
   let parsed: unknown;
@@ -56,5 +65,9 @@ export function loadCodriveConfig(configPath: string = defaultConfigPath()): Cod
     typeof raw.thinking === "string" && raw.thinking.trim().length > 0
       ? raw.thinking.trim()
       : DEFAULT_THINKING;
-  return { model, thinking };
+  const fixerModel =
+    typeof raw.fixerModel === "string" && raw.fixerModel.trim().length > 0
+      ? raw.fixerModel.trim()
+      : DEFAULT_FIXER_MODEL;
+  return { model, thinking, fixerModel };
 }
