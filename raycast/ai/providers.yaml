@@ -1,0 +1,29 @@
+providers:
+  - id: ollama
+    name: Ollama
+    base_url: http://localhost:11434/v1
+    models:
+      - id: qwen2.5:7b
+        name: Qwen 2.5 7B (Ollama)
+        context: 32000
+        abilities:
+          temperature:
+            supported: true
+          vision:
+            supported: false
+          system_message:
+            supported: true
+          tools:
+            supported: true
+      - id: gemma3n:e2b
+        name: Gemma 3n E2B (Ollama)
+        context: 32000
+        abilities:
+          temperature:
+            supported: true
+          vision:
+            supported: false
+          system_message:
+            supported: true
+          tools:
+            supported: false
