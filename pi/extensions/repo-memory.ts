@@ -1,7 +1,8 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { execSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { ensureGitExcluded } from "../lib/git-excludes.ts";
 
 /**
  * Zero-LLM repo map.
@@ -144,21 +145,13 @@ function buildRepoMap(cwd: string): string {
 }
 
 function ensureGitExcludes(cwd: string): void {
-  const gitDir = sh("git rev-parse --git-dir", cwd);
-  if (!gitDir) return;
-  const excludePath = join(cwd, gitDir, "info", "exclude");
   // .pi/memory.local.md is the legacy pre-migration notes format (no
   // longer written by this extension); kept excluded for repos that still
   // have one on disk. .pi/memory.jsonl is the current @isaaclins/pi-memory
   // project store.
-  const entries = [".pi/memory.local.md", ".pi/memory.jsonl", ".pi/repo-map.local.md"];
-  let current = "";
-  try {
-    current = readFileSync(excludePath, "utf8");
-  } catch {
-    mkdirSync(join(cwd, gitDir, "info"), { recursive: true });
-  }
-  const missing = entries.filter((entry) => !current.includes(entry));
-  if (missing.length === 0) return;
-  appendFileSync(excludePath, missing.join("\n") + "\n");
+  ensureGitExcluded(cwd, [
+    ".pi/memory.local.md",
+    ".pi/memory.jsonl",
+    ".pi/repo-map.local.md",
+  ]);
 }

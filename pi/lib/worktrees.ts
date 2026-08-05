@@ -20,16 +20,9 @@
  */
 
 import { spawnSync } from "node:child_process";
-import {
-  appendFileSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  statSync,
-} from "node:fs";
+import { existsSync, mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
 import { basename, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { ensureGitExcluded } from "./git-excludes.ts";
 
 /** Directory (relative to the repo root) holding worktrees by default. */
 export const DEFAULT_ROOT_DIRNAME = ".worktrees";
@@ -156,30 +149,11 @@ export function excludeEntryFor(repoRoot: string, root: string): string | undefi
   return `/${rel.split(sep).join("/")}/`;
 }
 
-/**
- * Append the worktree root to the repo's shared exclude file when missing.
- *
- * `$GIT_COMMON_DIR/info/exclude` is deliberate: `--git-dir` inside a linked
- * worktree points at `.git/worktrees/<name>`, while git reads excludes from
- * the common dir, so writing to `--git-dir` would create a file git ignores.
- */
+/** Append the worktree root to the repo's shared exclude file when missing. */
 export function ensureExcluded(repoRoot: string, root: string): void {
   const entry = excludeEntryFor(repoRoot, root);
   if (!entry) return;
-
-  const common = runGit(repoRoot, ["rev-parse", "--git-common-dir"]);
-  if (common.code !== 0) return;
-  const gitCommonDir = resolve(repoRoot, common.stdout.trim());
-  const infoDir = join(gitCommonDir, "info");
-  const excludePath = join(infoDir, "exclude");
-
-  let current = "";
-  if (existsSync(excludePath)) current = readFileSync(excludePath, "utf8");
-  else mkdirSync(infoDir, { recursive: true });
-
-  if (current.split("\n").some((line) => line.trim() === entry)) return;
-  const prefix = current.length > 0 && !current.endsWith("\n") ? "\n" : "";
-  appendFileSync(excludePath, `${prefix}${entry}\n`);
+  ensureGitExcluded(repoRoot, [entry]);
 }
 
 export interface WorktreeEntry {
