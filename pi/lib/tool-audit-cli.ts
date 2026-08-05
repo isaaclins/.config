@@ -36,6 +36,21 @@ import {
  */
 
 /** Parse `--flag value` pairs; repeated flags collect into a list. */
+/** Flags `note` accepts. Anything else is a typo worth failing on. */
+const NOTE_FLAGS: readonly string[] = [
+  "tried",
+  "got",
+  "workaround",
+  "expected",
+  "repro",
+  "owner",
+  "ref",
+  "suspect",
+  "suspects",
+  "cwd",
+  "session",
+];
+
 function parseFlags(argv: string[]): Map<string, string[]> {
   const flags = new Map<string, string[]>();
   for (let i = 0; i < argv.length; i += 1) {
@@ -50,8 +65,22 @@ function parseFlags(argv: string[]): Map<string, string[]> {
   return flags;
 }
 
+/** The unrecognised flag names in `flags`, so a typo can be reported. */
+export function unknownFlags(flags: Map<string, string[]>, allowed: readonly string[]): string[] {
+  return [...flags.keys()].filter((key) => !allowed.includes(key));
+}
+
 function runNote(argv: string[], dir: string): string {
   const flags = parseFlags(argv);
+  // Silently ignoring an unknown flag loses whatever it carried. Suspects are
+  // the gate's strongest signal and tell the fixer where to look, so a typo
+  // there quietly weakens the note instead of failing.
+  const unknown = unknownFlags(flags, NOTE_FLAGS);
+  if (unknown.length > 0) {
+    return `tool-audit: unknown flag${unknown.length > 1 ? "s" : ""} ${unknown
+      .map((key) => `--${key}`)
+      .join(", ")} (valid: ${NOTE_FLAGS.map((key) => `--${key}`).join(", ")})`;
+  }
   const one = (key: string): string | undefined => flags.get(key)?.[0];
   const tried = one("tried");
   const got = one("got");
@@ -74,7 +103,7 @@ function runNote(argv: string[], dir: string): string {
     },
     owner: ownerFlag as PapercutOwner | undefined,
     refCallId: one("ref"),
-    suspects: flags.get("suspect") ?? [],
+    suspects: [...(flags.get("suspect") ?? []), ...(flags.get("suspects") ?? [])],
   });
   writeRecord(dir, record);
   return `tool-audit: filed papercut ${record.callId} (owner ${record.owner ?? "unassigned"})`;
@@ -119,7 +148,7 @@ export function runCli(argv: string[], dir: string = auditDir()): string {
       "  notes          papercuts filed so far, newest first",
       "  note ...       file a papercut: --tried T --got G [--workaround W] [--expected E]",
       "                 [--repro CMD] [--owner config|pi|model|env] [--ref <call-id>]",
-      "                 [--suspect PATH ...] [--cwd DIR] [--session ID]",
+      "                 [--suspect PATH ...] [--suspects PATH ...] [--cwd DIR] [--session ID]",
       "  last <n>       the n most recent calls, one line each",
       "  show <call-id> full detail for one call: complete args and result",
       "  prune [days]   drop non-note records older than `days` (default 30)",

@@ -163,6 +163,25 @@ test("redactInlineSecrets leaves prose that merely looks credential-shaped", () 
   assert.equal(redactInlineSecrets(innocuous), innocuous);
 });
 
+test("the note CLI rejects an unknown flag instead of dropping its value", () => {
+  const dir = tempDir("papercut-cli-flags-");
+  const output = runCli(["note", "--tried", "t", "--got", "g", "--suspicious", "x"], dir);
+
+  assert.match(output, /unknown flag --suspicious/);
+  assert.equal(readAllRecords(dir).length, 0);
+});
+
+test("the note CLI accepts both --suspect and --suspects", () => {
+  const dir = tempDir("papercut-cli-suspects-");
+  runCli(
+    ["note", "--tried", "t", "--got", "g", "--suspect", "a.ts", "--suspects", "b.ts"],
+    dir,
+  );
+
+  const [record] = readAllRecords(dir);
+  assert.deepEqual(record.suspects, ["a.ts", "b.ts"]);
+});
+
 test("no field of a stored note keeps a credential in plaintext", () => {
   // A note is persisted three times over: args, the preview derived from the
   // result, and note. Redacting only one of them is the leak this guards.

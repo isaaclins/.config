@@ -12,6 +12,7 @@ import {
   formatSummary,
   isPapercutOwner,
   PAPERCUT_FILED_EVENT,
+  papercutRecords,
   readAllRecords,
   writeRecord,
 } from "../lib/tool-audit.ts";
@@ -184,9 +185,9 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.registerCommand("toolaudit", {
-    description: "Tool-call audit: summary, `errors`, `calls`, `notes`, `last <n>`, `show <call-id>`, or an <agent-id>",
+    description: "Tool-call audit: summary, `errors`, `calls`, `notes`, `announce <call-id>`, `last <n>`, `show <call-id>`, or an <agent-id>",
     getArgumentCompletions(prefix) {
-      const options = ["calls", "last", "show", "errors", "notes"];
+      const options = ["calls", "last", "show", "errors", "notes", "announce"];
       const matches = options
         .filter((option) => option.startsWith(prefix.toLowerCase()))
         .map((option) => ({ value: option, label: option }));
@@ -212,6 +213,29 @@ export default function (pi: ExtensionAPI) {
       }
       if (cmd === "notes") {
         ctx.ui.notify(formatNotes(records), "info");
+        return;
+      }
+      // Re-announce a stored note so a listener that was not running when it
+      // was filed can act on it. Notes filed by the CLI, or in an earlier
+      // session, otherwise never reach a subscriber. Deliberately re-emits the
+      // existing record rather than writing a new one: retention never drops a
+      // note, so re-filing would leave a permanent duplicate.
+      if (cmd === "announce") {
+        const id = parts[1] ?? "";
+        if (!id) {
+          ctx.ui.notify("tool-audit: usage: /toolaudit announce <call-id>", "warning");
+          return;
+        }
+        const record = papercutRecords(records).find((entry) => entry.callId === id);
+        if (!record) {
+          ctx.ui.notify(`tool-audit: no papercut ${id}`, "warning");
+          return;
+        }
+        pi.events.emit(PAPERCUT_FILED_EVENT, record);
+        ctx.ui.notify(
+          `tool-audit: re-announced papercut ${id} (owner ${record.owner ?? "unassigned"})`,
+          "info",
+        );
         return;
       }
       if (cmd === "last") {
