@@ -16,9 +16,12 @@ import {
   ChildReporter,
   CHILD_ID_ENV,
   CodriveController,
+  createTriggerWake,
+  DeferredTriggerRegistry,
   DelegationSupervisor,
   defaultRuntimeRoot,
   formatJobs,
+  formatTriggerLine,
   GitWorktrees,
   isCodriveChildEnvironment,
   isGitRepository,
@@ -35,6 +38,8 @@ import {
   TmuxBackend,
   truncateReportText,
   type CodriveReport,
+  type DeferDelivery,
+  type DeferKind,
   type HarnessSession,
   type OutgoingEnvelope,
   type PapercutJob,
@@ -153,6 +158,7 @@ export default function piCodrive(pi: ExtensionAPI): void {
   let orchestratorPaneId: string | undefined;
   let tmuxBackend: TmuxBackend | undefined;
   let dispatcher: PapercutDispatcher | undefined;
+  let deferred: DeferredTriggerRegistry | undefined;
   let unsubscribePapercut: (() => void) | undefined;
 
   /** Queue a papercut summary. It must never take over the user's view. */
@@ -271,6 +277,19 @@ export default function piCodrive(pi: ExtensionAPI): void {
 
     monitor.start();
 
+    // --- Deferred triggers ------------------------------------------------
+    // Same wake port as a delegation result, without the delegation: a trigger
+    // reaches the agent through pi.sendMessage and costs no pane and no child.
+    // Restore runs before the git check below so a pending trigger survives a
+    // restart even in a directory the papercut loop skips.
+    deferred = new DeferredTriggerRegistry({
+      sessionId: session.sessionId,
+      projectRoot: session.projectRoot,
+      store,
+      fire: createTriggerWake((message, options) => pi.sendMessage(message, options)),
+    });
+    deferred.restore();
+
     // --- Papercut self-repair loop ---------------------------------------
     // A reload runs session_start again, so drop any earlier subscription
     // before making a new one; two dispatchers would double-spawn fixers.
@@ -329,6 +348,11 @@ export default function piCodrive(pi: ExtensionAPI): void {
     }
     orchestratorPaneId = undefined;
     tmuxBackend = undefined;
+
+    // Timers go, records stay: shutdown is not cancellation, so whatever is
+    // still pending is restored by the next session.
+    deferred?.stop();
+    deferred = undefined;
 
     monitor?.stop();
     monitor = undefined;
@@ -537,6 +561,96 @@ export default function piCodrive(pi: ExtensionAPI): void {
       };
     },
   });
+
+  pi.registerTool({
+    name: "defer",
+    label: "Deferred Trigger",
+    description:
+      "Come back to something later without blocking and without delegating. action 'create' arms one trigger: pass delayMs to be reminded after that much wall clock, or check (a shell command, exit 0 means true) to be told as soon as a condition holds, polled every pollMs until timeoutMs. A condition that never comes true still fires, with a timeout outcome, so nothing is silently dropped. note is the text delivered back to you. delivery 'interrupt' (default) reaches you at the next tool call boundary and starts a turn even if you are idle; 'quiet' waits for the next natural turn and never interrupts. A trigger costs no model context, no tmux pane, and no delegation slot, and it survives turn end, going idle, compaction, and a restart. Use 'list' to see pending triggers and 'cancel' with an id to drop one.",
+    promptGuidelines: [
+      "To check back on something later (a long install, a deploy, a file that should appear), use defer instead of spawn_agent: spawn_agent spends a model context, a tmux pane, and the single delegation slot just to wait, while defer costs nothing while it waits.",
+      "Never sleep or poll in a bash command to wait for something slow. Arm a defer trigger with a check command and keep working; it wakes you when the condition holds or when it times out.",
+    ],
+    parameters: Type.Object({
+      action: Type.Union([
+        Type.Literal("create"),
+        Type.Literal("list"),
+        Type.Literal("cancel"),
+      ]),
+      note: Type.Optional(Type.String()),
+      delayMs: Type.Optional(Type.Number()),
+      check: Type.Optional(Type.String()),
+      pollMs: Type.Optional(Type.Number()),
+      timeoutMs: Type.Optional(Type.Number()),
+      delivery: Type.Optional(
+        Type.Union([Type.Literal("interrupt"), Type.Literal("quiet")]),
+      ),
+      id: Type.Optional(Type.String()),
+    }),
+    async execute(_id, params) {
+      if (!deferred) throw new Error("Codrive session not initialized");
+
+      if (params.action === "list") {
+        const triggers = deferred.list();
+        const text =
+          triggers.length === 0
+            ? "(no pending deferred triggers)"
+            : triggers.map(formatTriggerLine).join("\n");
+        const details: DeferToolDetails = { action: "list", count: triggers.length };
+        return { content: [{ type: "text", text }], details };
+      }
+
+      if (params.action === "cancel") {
+        const id = params.id?.trim();
+        if (!id) throw new Error("id is required for cancel");
+        const cancelled = deferred.cancel(id);
+        if (!cancelled) {
+          throw new Error(
+            `No pending deferred trigger ${id}: it already fired, was cancelled, or never existed. Use action "list" to see what is pending.`,
+          );
+        }
+        const details: DeferToolDetails = { action: "cancel", id, kind: cancelled.kind };
+        return {
+          content: [
+            { type: "text", text: `Cancelled deferred trigger ${id}; it will not fire.` },
+          ],
+          details,
+        };
+      }
+
+      const trigger = deferred.create({
+        note: params.note ?? "",
+        delayMs: params.delayMs,
+        check: params.check,
+        pollMs: params.pollMs,
+        timeoutMs: params.timeoutMs,
+        delivery: params.delivery,
+      });
+      const due = new Date(trigger.dueAt).toISOString();
+      const text =
+        trigger.kind === "after"
+          ? `Armed deferred trigger ${trigger.id}: it fires at ${due} and is delivered as ${trigger.delivery}.`
+          : `Armed deferred trigger ${trigger.id}: it polls \`${trigger.check}\` every ${trigger.pollMs} ms and fires as soon as that succeeds, or with a timeout outcome at ${due}. Delivered as ${trigger.delivery}.`;
+      const details: DeferToolDetails = {
+        action: "create",
+        id: trigger.id,
+        kind: trigger.kind,
+        dueAt: due,
+        delivery: trigger.delivery,
+      };
+      return { content: [{ type: "text", text }], details };
+    },
+  });
+}
+
+/** One details shape for every defer action, so the tool has one result type. */
+interface DeferToolDetails {
+  action: "create" | "list" | "cancel";
+  id?: string;
+  kind?: DeferKind;
+  dueAt?: string;
+  delivery?: DeferDelivery;
+  count?: number;
 }
 
 /**

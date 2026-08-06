@@ -26,8 +26,9 @@ src/
   child-reporter.ts -- Child-side episode logic (fast-path report vs interrupt + settle window)
   supervisor.ts     -- DelegationSupervisor: parent-side per-child lifecycle state machine
   pane-health.ts    -- Background pane liveness watchdog
+  deferred.ts       -- DeferredTriggerRegistry: time and condition triggers on the same wake port
   tmux-backend.ts   -- CodriveBackend implementation using tmux split-window
-extension.ts        -- Thin Pi adapter (registers spawn_agent, agent_report, agent_pane, agent_resume)
+extension.ts        -- Thin Pi adapter (registers spawn_agent, agent_report, agent_pane, agent_resume, defer)
 ```
 
 The parent-side lifecycle policy lives entirely in `DelegationSupervisor`, and
@@ -87,6 +88,30 @@ Invariants:
 
 Use `/papercuts` to list jobs, `/papercuts show <id>` for full detail including both reports, `/papercuts dispatch <id>` to force one past the owner gate, and `/papercuts cleanup` to remove worktrees for papercut branches git reports as already merged. Cleanup never touches an unmerged branch.
 
+## Deferred triggers
+
+`defer` lets an agent come back to something later without blocking a turn and without delegating. Before it existed, "check back in four minutes" cost either a blocked turn, a detached poller nothing ever read, or a whole `spawn_agent` (a model context, a tmux pane, and the single delegation slot) running a `sleep`. A deferred trigger costs a timer and one JSON record.
+
+Two kinds:
+
+- **`after`** -- `defer({ action: "create", delayMs, note })` fires once the elapsed wall clock passes. The deadline is stored as an absolute timestamp, so a restart can neither shift it nor lose it.
+- **`when`** -- `defer({ action: "create", check, note })` polls a shell command every `pollMs` (default 15000, floor 1000) and fires as soon as it exits 0. If it never does, the trigger fires anyway at `timeoutMs` (default one hour, hard cap 24 hours) with a `timeout` outcome. A trigger that gives up silently is the bug this exists to remove.
+
+Both carry a `note`, which is the text delivered back to the agent, and both survive turn end, going idle, context compaction, and a process restart. Pending triggers live in the same private per-session `RuntimeStore` state as child records, never in the conversation, which is why compaction cannot rewrite them away. On the next `session_start` they are restored: an `after` whose deadline passed while the process was down fires immediately, a `when` resumes polling, and a `when` whose deadline already passed fires its timeout. Triggers left behind by an earlier session of the same project are adopted only when the process that armed them is gone, so two live sessions never steal each other's timers.
+
+`defer({ action: "list" })` shows what is pending; `defer({ action: "cancel", id })` drops one and reports an error when the id is unknown or already fired.
+
+### The two delivery behaviors
+
+| `delivery` | `pi.sendMessage` options | Use it when |
+|---|---|---|
+| `"interrupt"` (default) | `{ triggerTurn: true, deliverAs: "steer" }` | The result changes what you should do next: a build finished, a deploy is live, the four minutes are up. `steer` lands at the next tool call boundary of the running turn, and `triggerTurn` starts a turn when nothing is running, so a fire into an idle session is not lost. |
+| `"quiet"` | `{ triggerTurn: false, deliverAs: "nextTurn" }` | The result is background bookkeeping the user should not be interrupted for. It never triggers anything and surfaces at the next natural turn. Same split the supervisor uses for a background child's report. |
+
+`"interrupt"` is the default because a trigger the agent armed is by definition work it intends to return to, and a quiet trigger firing into an idle session waits until the user happens to type again.
+
+Honest limitation: Pi has no supported seam to preempt a turn while a tool is still executing. `deliverAs: "steer"` is delivered after the running assistant turn finishes its current tool calls and before the next LLM call. So `"interrupt"` means the next tool call boundary, which is the earliest point Pi supports, not an immediate stop. A trigger that fires one second into a ten minute `bash` call is delivered when that call returns.
+
 ## Tools exposed
 
 | Tool | Description |
@@ -95,6 +120,7 @@ Use `/papercuts` to list jobs, `/papercuts show <id>` for full detail including 
 | `agent_report` | Read lifecycle history for a pane, including interruptions and farewells (recovery/history API). Historical pane ids still resolve after a resume. |
 | `agent_pane` | Read output from or send text to a live subagent pane. After a resume the current pane is used even if you pass an old pane id. |
 | `agent_resume` | Relaunch a dead or stuck subagent into a fresh pane, resuming its own recorded pi session with the same childId. Refuses a live healthy child unless `force`. |
+| `defer` | Arm, list, and cancel deferred triggers: fire after a delay, or as soon as a shell condition holds, with a guaranteed timeout outcome. No model context, no pane, no delegation slot. |
 
 Commands: `/papercuts` (see above).
 

@@ -42,6 +42,34 @@ export interface ChildRecord {
   paneHistory?: string[];
 }
 
+export type DeferDelivery = "interrupt" | "quiet";
+export type DeferKind = "after" | "when";
+
+/**
+ * One pending deferred trigger, as it lives on disk.
+ *
+ * The deadline is stored as an absolute epoch timestamp rather than a
+ * remaining duration: a remaining duration silently restarts its own countdown
+ * every time the process restarts, which is exactly how a deferred wake-up
+ * gets lost or drifts.
+ */
+export interface DeferredTriggerRecord {
+  id: string;
+  kind: DeferKind;
+  /** Text delivered back to the agent when this trigger fires. */
+  note: string;
+  delivery: DeferDelivery;
+  createdAt: string;
+  /** Absolute epoch ms. "after" fires here; "when" gives up here with a timeout. */
+  dueAt: number;
+  /** Shell command whose exit code 0 means the condition is true ("when" only). */
+  check?: string;
+  /** Poll interval for "when". */
+  pollMs?: number;
+  /** pid of the process that armed it, so only a dead owner's triggers are adopted. */
+  ownerPid?: number;
+}
+
 export type ReportStatus = "completed" | "error" | "aborted";
 
 export interface CodriveReport {
@@ -56,13 +84,15 @@ export interface CodriveReport {
   errorSummary?: string;
 }
 
-const STATE_VERSION = 2;
+const STATE_VERSION = 3;
+const KNOWN_STATE_VERSIONS = [1, 2, STATE_VERSION];
 
 interface PersistedState {
-  version: 2;
+  version: 3;
   updatedAt: string;
   session: HarnessSession;
   children: ChildRecord[];
+  triggers: DeferredTriggerRecord[];
 }
 
 /**
@@ -81,6 +111,41 @@ function normalizeChild(child: ChildRecord, projectRoot: string): ChildRecord {
         ? [...child.paneHistory]
         : [child.paneId],
   };
+}
+
+/**
+ * A record with no id, kind, or deadline can never fire, so it is dropped on
+ * load instead of being carried forward as a trigger that looks pending.
+ */
+function isUsableTrigger(trigger: DeferredTriggerRecord | undefined): boolean {
+  if (!trigger) return false;
+  if (!SAFE_ID.test(trigger.id ?? "")) return false;
+  if (trigger.kind !== "after" && trigger.kind !== "when") return false;
+  if (typeof trigger.note !== "string") return false;
+  return Number.isFinite(trigger.dueAt);
+}
+
+/** Fill the fields a trigger written by an older version may not carry. */
+function normalizeTrigger(trigger: DeferredTriggerRecord): DeferredTriggerRecord {
+  return {
+    ...trigger,
+    delivery: trigger.delivery === "quiet" ? "quiet" : "interrupt",
+    createdAt: trigger.createdAt ?? new Date(trigger.dueAt).toISOString(),
+  };
+}
+
+/**
+ * True when a process is still running. EPERM means it exists but belongs to
+ * another user, which still counts as alive: its triggers are not ours to take.
+ */
+export function processIsAlive(pid: number): boolean {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "EPERM";
+  }
 }
 
 export interface RuntimeStoreOptions {
@@ -125,7 +190,66 @@ export class RuntimeStore {
       updatedAt: new Date(this.now()).toISOString(),
       session: { ...session, childIds: [...session.childIds] },
       children: existing?.children ?? [],
+      triggers: existing?.triggers ?? [],
     });
+  }
+
+  /** Pending deferred triggers owned by this session. */
+  loadTriggers(sessionId: string): DeferredTriggerRecord[] {
+    const state = this.loadState(sessionId);
+    return (state?.triggers ?? []).map((trigger) => ({ ...trigger }));
+  }
+
+  /**
+   * Replace the pending trigger list wholesale. The list is small and always
+   * rewritten as a unit, so one atomic write per change keeps disk state and
+   * armed timers from ever disagreeing about what is still pending.
+   */
+  saveTriggers(sessionId: string, triggers: DeferredTriggerRecord[]): void {
+    const state = this.requireState(sessionId);
+    for (const trigger of triggers) assertSafeId(trigger.id, "triggerId");
+    this.writeState({
+      ...state,
+      updatedAt: new Date(this.now()).toISOString(),
+      triggers: triggers.map((trigger) => ({ ...trigger })),
+    });
+  }
+
+  /**
+   * Take over pending triggers left behind by earlier sessions in the same
+   * project, and return the full pending list for this session.
+   *
+   * Every session gets a fresh sessionId, so without adoption a restart would
+   * orphan its own triggers under the old id. Only triggers whose owning
+   * process is gone are taken: a second live session in the same project must
+   * not steal timers the first one is still counting down.
+   */
+  adoptTriggers(
+    sessionId: string,
+    projectRoot: string,
+    isOwnerAlive: (pid: number) => boolean = processIsAlive,
+  ): DeferredTriggerRecord[] {
+    const own = this.loadTriggers(sessionId);
+    const adopted: DeferredTriggerRecord[] = [];
+    for (const entry of readdirSync(this.root)) {
+      if (entry === sessionId || !SAFE_ID.test(entry)) continue;
+      const state = this.tryLoadState(entry);
+      if (!state || state.session.projectRoot !== projectRoot) continue;
+      const orphans = state.triggers.filter(
+        (trigger) => trigger.ownerPid === undefined || !isOwnerAlive(trigger.ownerPid),
+      );
+      if (orphans.length === 0) continue;
+      this.writeState({
+        ...state,
+        updatedAt: new Date(this.now()).toISOString(),
+        triggers: state.triggers.filter((trigger) => !orphans.includes(trigger)),
+      });
+      adopted.push(...orphans);
+    }
+    if (adopted.length === 0) return own;
+    const merged = [...own, ...adopted];
+    this.saveTriggers(sessionId, merged);
+    return merged.map((trigger) => ({ ...trigger }));
   }
 
   registerChild(sessionId: string, child: ChildRecord): void {
@@ -260,6 +384,19 @@ export class RuntimeStore {
     return state;
   }
 
+  /**
+   * Read another session's state without letting a foreign, newer, or
+   * half-written file break this session's startup. Only adoption uses this;
+   * it is the one path that reads state files this process does not own.
+   */
+  private tryLoadState(sessionId: string): PersistedState | undefined {
+    try {
+      return this.loadState(sessionId);
+    } catch {
+      return undefined;
+    }
+  }
+
   private loadState(sessionId: string): PersistedState | undefined {
     const path = this.statePath(sessionId);
     if (!existsSync(path)) return undefined;
@@ -268,14 +405,16 @@ export class RuntimeStore {
       updatedAt: string;
       session: HarnessSession;
       children: ChildRecord[];
+      triggers?: DeferredTriggerRecord[];
     };
     if (
-      (parsed.version !== 1 && parsed.version !== STATE_VERSION) ||
+      !KNOWN_STATE_VERSIONS.includes(parsed.version ?? 0) ||
       parsed.session.sessionId !== sessionId
     ) {
       throw new Error(`Invalid runtime state for ${sessionId}`);
     }
-    // Tolerate and migrate v1 records: fill the resume fields with defaults.
+    // Tolerate and migrate older records: v1 lacks the resume fields, v1 and
+    // v2 lack triggers entirely. Both load as an empty, valid v3 state.
     return {
       version: STATE_VERSION,
       updatedAt: parsed.updatedAt,
@@ -283,6 +422,7 @@ export class RuntimeStore {
       children: (parsed.children ?? []).map((child) =>
         normalizeChild(child, parsed.session.projectRoot),
       ),
+      triggers: (parsed.triggers ?? []).filter(isUsableTrigger).map(normalizeTrigger),
     };
   }
 
