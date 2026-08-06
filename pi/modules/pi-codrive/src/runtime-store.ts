@@ -220,14 +220,23 @@ export class RuntimeStore {
    * project, and return the full pending list for this session.
    *
    * Every session gets a fresh sessionId, so without adoption a restart would
-   * orphan its own triggers under the old id. Only triggers whose owning
-   * process is gone are taken: a second live session in the same project must
-   * not steal timers the first one is still counting down.
+   * orphan its own triggers under the old id. A second live session in the
+   * same project must still not steal timers the first one is counting down,
+   * so a trigger is only taken when nothing is left to fire it.
+   *
+   * That means two cases, not one. A dead owner is the restart case. An owner
+   * that is this very process is the reload case: /reload mints a new
+   * sessionId inside the same pid, and the previous registry already dropped
+   * its timers in stop(), so those records have no live timer behind them
+   * either. Treating only a dead owner as adoptable stranded them under the
+   * old session id forever, which silently swallowed every pending defer
+   * across a reload.
    */
   adoptTriggers(
     sessionId: string,
     projectRoot: string,
     isOwnerAlive: (pid: number) => boolean = processIsAlive,
+    selfPid: number = process.pid,
   ): DeferredTriggerRecord[] {
     const own = this.loadTriggers(sessionId);
     const adopted: DeferredTriggerRecord[] = [];
@@ -236,7 +245,10 @@ export class RuntimeStore {
       const state = this.tryLoadState(entry);
       if (!state || state.session.projectRoot !== projectRoot) continue;
       const orphans = state.triggers.filter(
-        (trigger) => trigger.ownerPid === undefined || !isOwnerAlive(trigger.ownerPid),
+        (trigger) =>
+          trigger.ownerPid === undefined ||
+          trigger.ownerPid === selfPid ||
+          !isOwnerAlive(trigger.ownerPid),
       );
       if (orphans.length === 0) continue;
       this.writeState({

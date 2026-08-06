@@ -394,6 +394,49 @@ test("an overdue after trigger fires immediately after a restart, and a when tri
   );
 });
 
+test("a reload reclaims its own pending triggers instead of stranding them", () => {
+  // /reload mints a fresh sessionId inside the SAME process, so the previous
+  // owner pid is still alive. Treating only a dead owner as adoptable used to
+  // strand every pending defer under the old session id, silently.
+  const base = harness();
+  const samePid = 4242;
+  const before = registryOn(base, { pid: samePid });
+  const armed = before.registry.create({ note: "survives the reload", delayMs: 600_000 });
+  // session_shutdown: timers go, records stay.
+  before.registry.stop();
+
+  const reloaded = createHarnessSession({
+    projectRoot: base.session.projectRoot,
+    role: "orchestrator",
+    delegationDepth: 0,
+    trust: "trusted",
+  });
+  base.store.saveSession(reloaded);
+  const clock = new FakeClock();
+  const registry = new DeferredTriggerRegistry({
+    sessionId: reloaded.sessionId,
+    projectRoot: reloaded.projectRoot,
+    store: base.store,
+    scheduler: clock.scheduler,
+    now: clock.now,
+    pid: samePid,
+    // The old owner is this very process, so it is emphatically alive.
+    isOwnerAlive: () => true,
+    fire: () => {},
+  });
+
+  assert.deepEqual(
+    registry.restore().resumed.map((trigger) => trigger.id),
+    [armed.id],
+    "the reload must re-arm the trigger it stopped moments earlier",
+  );
+  assert.deepEqual(
+    base.store.loadTriggers(base.session.sessionId),
+    [],
+    "and must not leave a duplicate under the old session id",
+  );
+});
+
 test("restore adopts triggers from an earlier session of the same project, but not from a live one", () => {
   const base = harness();
   const previous = registryOn(base, { pid: 1111 });

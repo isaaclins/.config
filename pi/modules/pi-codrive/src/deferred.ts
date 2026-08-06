@@ -157,6 +157,7 @@ export interface DeferredTriggerStore {
     sessionId: string,
     projectRoot: string,
     isOwnerAlive?: (pid: number) => boolean,
+    selfPid?: number,
   ): DeferredTriggerRecord[];
 }
 
@@ -288,10 +289,14 @@ export class DeferredTriggerRegistry {
    * timeout when its deadline is already behind us.
    */
   restore(): RestoreResult {
+    // this.pid is passed explicitly so a reload, which mints a new sessionId
+    // inside the same process, reclaims the triggers the previous registry
+    // stopped rather than stranding them under the old id.
     const stored = this.store.adoptTriggers(
       this.sessionId,
       this.projectRoot,
       this.isOwnerAlive,
+      this.pid,
     );
     for (const trigger of stored) {
       // This process owns the timer now, so it owns the record.
