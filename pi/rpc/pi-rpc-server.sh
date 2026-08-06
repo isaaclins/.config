@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # ~/.config/pi/rpc/pi-rpc-server.sh
-# Purpose: Run pi-rpc-server bound to this machine's Tailscale address only, with
-#   the API token read from the login Keychain.
+# Purpose: Run pi-rpc-server on loopback and publish it over the tailnet as HTTPS
+#   via `tailscale serve`, with the API token read from the login Keychain.
 #
 #   The RPC surface includes a `bash` command that reaches session.executeBash(),
-#   i.e. arbitrary shell execution as this user. So this never binds 0.0.0.0 and
-#   the token never lands in the tracked (public) config repo. Reachability comes
-#   from the tailnet, which is WireGuard-encrypted between nodes.
+#   i.e. arbitrary shell execution as this user. So the agent itself binds only
+#   127.0.0.1 and is never reachable directly; Tailscale terminates TLS with a
+#   real Let's Encrypt cert for the MagicDNS name and proxies to loopback. That
+#   cert is what lets iOS App Transport Security accept the connection.
 #
 #   Nothing here is machine-specific: the bind address is resolved from tailscale
 #   at start, so a fresh `git pull` on another machine works unchanged.
@@ -39,8 +40,7 @@ if [ -z "$server_bin" ]; then
   exit 78
 fi
 
-# At login the tailnet is usually not up yet. Wait rather than bind the wrong
-# interface or die immediately.
+# At login the tailnet is usually not up yet, and `serve` needs it.
 bind_ip=""
 for _ in $(seq 1 60); do
   bind_ip="$("$tailscale_bin" ip -4 2>/dev/null | head -n1 || true)"
@@ -52,6 +52,22 @@ if [ -z "$bind_ip" ]; then
   exit 75
 fi
 
+# Publish tailnet :443 -> loopback :PORT over TLS. Idempotent, and re-asserted on
+# every start so a `tailscale serve reset` elsewhere cannot silently drop HTTPS.
+serve_ok=""
+for _ in $(seq 1 5); do
+  if "$tailscale_bin" serve --bg --https=443 "http://127.0.0.1:${PORT}" >/dev/null 2>&1; then
+    serve_ok=1
+    break
+  fi
+  sleep 5
+done
+if [ -z "$serve_ok" ]; then
+  echo "[pi-rpc] 'tailscale serve' failed. HTTPS certs must be enabled for the" >&2
+  echo "[pi-rpc] tailnet: https://login.tailscale.com/admin/dns -> Enable HTTPS." >&2
+  exit 78
+fi
+
 token="$(security find-generic-password -s "$KEYCHAIN_SERVICE" -w 2>/dev/null || true)"
 if [ -z "$token" ]; then
   echo "[pi-rpc] no token in Keychain service '${KEYCHAIN_SERVICE}'" >&2
@@ -60,5 +76,5 @@ if [ -z "$token" ]; then
 fi
 export PI_API_TOKEN="$token"
 
-echo "[pi-rpc] $(date '+%F %T') binding ${bind_ip}:${PORT} cwd=${CWD}"
-exec "$server_bin" --host "$bind_ip" --port "$PORT"
+echo "[pi-rpc] $(date '+%F %T') loopback :${PORT} via tailscale serve https, cwd=${CWD}"
+exec "$server_bin" --host 127.0.0.1 --port "$PORT"

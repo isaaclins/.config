@@ -2,7 +2,11 @@
 # ~/.config/bootstrap/cli/shell/install-pi-rpc-server.sh
 # Purpose: Always-on pi RPC server for the Pi Dev mobile app. Installs the server
 #   under bun, generates a per-machine API token into the login Keychain, and
-#   registers a launchd job that binds it to this machine's Tailscale address.
+#   registers a launchd job that runs it on loopback behind `tailscale serve`,
+#   which fronts it with HTTPS on the machine's MagicDNS name.
+#
+#   Requires HTTPS to be enabled once per tailnet (not per machine) at
+#   https://login.tailscale.com/admin/dns -> Enable HTTPS.
 #
 #   The token is generated locally on every machine and is deliberately NOT part
 #   of this repo: the repo is public, and the RPC surface includes a `bash`
@@ -91,6 +95,16 @@ plutil -lint "${plist_path}" >/dev/null
 launchctl bootout "gui/$(id -u)/${label}" 2>/dev/null || true
 launchctl bootstrap "gui/$(id -u)" "${plist_path}"
 
+dns_name="$(tailscale status --json 2>/dev/null |
+  sed -n 's/.*"DNSName": *"\([^"]*\)".*/\1/p' | head -1 | sed 's/\.$//')"
+
 echo "installed ${label}"
-echo "  url:   http://$(scutil --get LocalHostName | tr '[:upper:]' '[:lower:]').$(tailscale status --json 2>/dev/null | sed -n 's/.*"MagicDNSSuffix": *"\([^"]*\)".*/\1/p' | head -1):3000"
+echo "  url:   https://${dns_name:-<magicdns-name>}"
 echo "  token: security find-generic-password -s ${keychain_service} -w"
+
+if ! tailscale cert "${dns_name}" --cert-file /dev/null --key-file /dev/null >/dev/null 2>&1; then
+  echo
+  echo "WARNING: this tailnet cannot issue TLS certs yet, so HTTPS will not come up."
+  echo "Enable it once at https://login.tailscale.com/admin/dns (Enable HTTPS),"
+  echo "then: launchctl kickstart -k gui/\$(id -u)/${label}"
+fi
