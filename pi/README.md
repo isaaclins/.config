@@ -36,6 +36,7 @@ One responsibility has one owner. A local extension must not register a competin
 | `model-effort.ts` | model-aware `/effort`, Shift+Tab labels, and switch clamping |
 | `notify-sound.ts` | desktop notification when a prompt finishes (Claude icon, Glass sound, one-line TLDR) |
 | `prompt-stash.ts` | `ctrl+s` stash/restore/swap, held across `/reload` |
+| `reload-when-idle.ts` | `/reload-when-idle`, which reloads now or as soon as streaming and compaction finish |
 | `repo-memory.ts` | deterministic zero-LLM repo map injection |
 | `tool-audit.ts` | tool-call audit tracker plus `/toolaudit` |
 | `ui-polish.ts` | working indicator plus the stash widget |
