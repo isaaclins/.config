@@ -35,11 +35,42 @@ One responsibility has one owner. A local extension must not register a competin
 | `keep-awake.ts` | automatic `caffeinate` plus `/clam` for lid-closed keep-awake |
 | `model-effort.ts` | model-aware `/effort`, Shift+Tab labels, and switch clamping |
 | `notify-sound.ts` | desktop notification when a prompt finishes (Claude icon, Glass sound, one-line TLDR) |
+| `ollama.ts` | discovers locally installed Ollama models and registers them as the `ollama` provider |
 | `prompt-stash.ts` | `ctrl+s` stash/restore/swap, held across `/reload` |
 | `reload-when-idle.ts` | `/reload-when-idle`, which reloads now or as soon as streaming and compaction finish |
 | `repo-memory.ts` | deterministic zero-LLM repo map injection |
 | `tool-audit.ts` | tool-call audit tracker plus `/toolaudit` |
 | `ui-polish.ts` | working indicator plus the stash widget |
+
+## Ollama models
+
+`ollama.ts` discovers what is installed locally instead of pinning a list in
+`models.json`, so `ollama pull <model>` plus a `/reload` is all it takes for a
+model to appear in `/model`. Models are registered under the `ollama` provider
+and selected as `ollama/<id>`, for example `ollama/gemma4:12b-mlx`.
+
+Only models whose Ollama capabilities include `tools` are registered. pi cannot
+run a turn without tool calls, so a chat-only model such as `gemma3n:e2b` would
+be selectable and then fail immediately. `thinking` sets `reasoning` and
+`vision` adds image input, both read from Ollama rather than guessed.
+
+The declared context window is deliberately not the model's advertised maximum.
+Ollama serves `num_ctx`, which it picks from available VRAM (4k/32k/256k)
+unless `OLLAMA_CONTEXT_LENGTH` says otherwise: `gemma4:12b-mlx` advertises
+262144 and actually loads at 32768 here. Claiming the maximum would let pi fill
+a window Ollama silently truncates, which reads as the model forgetting rather
+than as a misconfiguration, so the declared window is the smaller of the model
+maximum and what the server will serve. Raise both together by setting
+`OLLAMA_CONTEXT_LENGTH`, and check the real value with `ollama ps`.
+
+`OLLAMA_HOST` is honoured in the same forms the `ollama` CLI accepts, so a
+remote server needs no second setting. When Ollama is not running the provider
+is simply not registered; discovery is bounded by a short timeout so a stopped
+or slow server never delays startup.
+
+Small models are the practical limit rather than the plumbing: `gemma4:12b-mlx`
+drives the agent loop correctly, while `qwen2.5:7b` tends to lose the thread of
+pi's system prompt.
 
 ## Model-aware reasoning effort
 
