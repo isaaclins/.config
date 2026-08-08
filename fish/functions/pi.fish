@@ -1,4 +1,8 @@
 function pi --description "pi wrapper: run in tmux and auto-continue the repo's last session" --wraps pi
+    # Repair settings.json before every launch, including argument passthrough:
+    # a startup-blocking tool collision breaks `pi -p` and subcommands too.
+    __pi_settings_guard
+
     # Any explicit arguments (flags, -p prompts, subcommands) pass through
     # unchanged, so scripted and one-shot invocations behave stock.
     if test (count $argv) -gt 0

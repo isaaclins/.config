@@ -25,7 +25,8 @@
     "~/.config/pi/modules/pi-codrive",
     "~/.config/pi/modules/pi-excalidraw",
     "~/.config/pi/modules/pi-tmux-image-preview",
-    "~/.config/pi/packages/pi-computer-use-codex-parity"
+    "~/.config/pi/packages/pi-computer-use-codex-parity",
+    "../../Projects/argus"
   ],
   "powerline": {
     "customItems": [
