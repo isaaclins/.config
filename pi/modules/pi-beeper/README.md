@@ -42,8 +42,9 @@ Write tools:
 
 Read results are JSON only. Message text is framed with a random per-call
 nonce, normalized, secret-redacted by default, capped at 2,000 characters per
-message, and capped at 50 KB or 2,000 lines per call. Reads never mark chats as
-read. Write tools require a separate human confirmation dialog, an earlier
+message, and capped at 50 KB or 2,000 lines per call. Pass `--beeper-no-redaction` only
+when the user explicitly accepts unredacted message content. Reads never mark
+chats as read. Write tools require a separate human confirmation dialog, an earlier
 same-session chat resolution, an append-only audit record outside the repo, a
 five-second rate limit, and a session budget of twelve writes across five
 chats. `/beeper-kill-switch` disables writes immediately. Spawned Pi subagents
