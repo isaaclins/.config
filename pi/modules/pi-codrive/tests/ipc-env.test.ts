@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { captureChildIpcEnvironment } from "../src/index.ts";
+import { captureChildIpcEnvironment, CHILD_MARKER_ENV } from "../src/index.ts";
 
 test("captureChildIpcEnvironment scrubs current and legacy env keys", () => {
   const env: NodeJS.ProcessEnv = {
@@ -23,6 +23,7 @@ test("captureChildIpcEnvironment scrubs current and legacy env keys", () => {
   assert.equal(env.PI_CODRIVE_CHILD_ID, undefined);
   assert.equal(env.PI_SPAWN_NOTIFY_FILE, undefined);
   assert.equal(env.PI_SPAWN_AGENT_REPORT_FILE, undefined);
+  assert.equal(env[CHILD_MARKER_ENV], "1");
   assert.equal(env.UNRELATED, "kept");
 });
 
@@ -35,6 +36,7 @@ test("a grandchild process cannot recover session/child identity after scrubbing
   const inheritedByGrandchild = { ...env };
   assert.equal(inheritedByGrandchild.PI_CODRIVE_SESSION_ID, undefined);
   assert.equal(inheritedByGrandchild.PI_CODRIVE_CHILD_ID, undefined);
+  assert.equal(inheritedByGrandchild[CHILD_MARKER_ENV], "1");
 });
 
 test("captureChildIpcEnvironment returns empty object when no keys present", () => {

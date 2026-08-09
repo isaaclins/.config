@@ -4,6 +4,8 @@ export const SOCKET_ENV = "PI_CODRIVE_SOCKET";
 export const NONCE_ENV = "PI_CODRIVE_NONCE";
 export const SESSION_ID_ENV = "PI_CODRIVE_SESSION_ID";
 export const CHILD_ID_ENV = "PI_CODRIVE_CHILD_ID";
+/** Non-secret process marker for sibling extensions that must be read-only in children. */
+export const CHILD_MARKER_ENV = "PI_CODRIVE_CHILD";
 const CREDENTIAL_KEYS = [SOCKET_ENV, NONCE_ENV, SESSION_ID_ENV, CHILD_ID_ENV] as const;
 const LEGACY_KEYS = [
   "PI_SPAWN_NOTIFY_FILE",
@@ -25,6 +27,7 @@ export function captureChildIpcEnvironment(
     delete env[key];
   }
   for (const key of LEGACY_KEYS) delete env[key];
+  if (captured[SOCKET_ENV] || captured[CHILD_ID_ENV]) env[CHILD_MARKER_ENV] = "1";
   return captured;
 }
 
@@ -35,7 +38,8 @@ export function isCodriveChildEnvironment(
   env: NodeJS.ProcessEnv = process.env,
 ): boolean {
   return Boolean(
-    env[SOCKET_ENV] ||
+    env[CHILD_MARKER_ENV] ||
+      env[SOCKET_ENV] ||
       env[NONCE_ENV] ||
       env.PI_SPAWN_NOTIFY_FILE ||
       env.PI_SPAWN_AGENT_REPORT_FILE,
