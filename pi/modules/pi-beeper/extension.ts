@@ -523,7 +523,7 @@ export function registerPiBeeper(
     async execute(_id, params, signal, _onUpdate, ctx) {
       return safeExecute(token, async () => {
         const chat = requireKnownChat(state, params.chatID, true);
-        const account = requireWritableAccount(state, chat.accountID);
+        const account = requireWritableAccount(state, chat.accountID, chat);
         if (chat.isReadOnly) throw new Error(`Chat ${chat.id} is read-only; no message was sent.`);
         if (params.replyToMessageID) requireKnownMessage(state, params.replyToMessageID, params.chatID);
         await confirmWrite(ctx, {
@@ -584,7 +584,7 @@ export function registerPiBeeper(
     async execute(_id, params, signal, _onUpdate, ctx) {
       return safeExecute(token, async () => {
         const chat = requireKnownChat(state, params.chatID, true);
-        const account = requireWritableAccount(state, chat.accountID);
+        const account = requireWritableAccount(state, chat.accountID, chat);
         requireKnownMessage(state, params.messageID, params.chatID);
         await confirmWrite(ctx, {
           kind: "reaction",
@@ -720,15 +720,38 @@ function requireKnownMessage(state: BleeperSessionState, messageID: string, chat
   }
 }
 
-function requireWritableAccount(state: BleeperSessionState, accountID: string): SeenAccount {
+function requireWritableAccount(
+  state: BleeperSessionState,
+  accountID: string,
+  attestingChat?: { accountID: string; network: string },
+): SeenAccount {
   const account = state.accounts.get(accountID);
-  if (!account) {
-    throw new Error(`Account ${accountID} is not known in this session. Call beeper_list_accounts before writing.`);
+  if (account) {
+    const raw = state.rawAccounts.get(accountID);
+    const diagnostic = raw ? accountDiagnostic(raw) : undefined;
+    if (diagnostic) throw diagnostic;
+    return account;
   }
-  const raw = state.rawAccounts.get(accountID);
-  const diagnostic = raw ? accountDiagnostic(raw) : undefined;
-  if (diagnostic) throw diagnostic;
-  return account;
+
+  // Some bridges serve readable and writable chats whose accountID never appears
+  // in GET /v1/accounts. iMessage is the observed case: its threads resolve and
+  // read fine, but the account list omits them, which made every iMessage chat
+  // permanently unwritable. A chat the server itself returned is sufficient
+  // attestation that its account exists, so accept that rather than refusing a
+  // whole network. The chat still had to come from a list/search/resolve call,
+  // so this does not let a model invent an account.
+  if (attestingChat && attestingChat.accountID === accountID) {
+    return {
+      accountID,
+      network: attestingChat.network,
+      status: "connected",
+      userID: "",
+      userHandle: "",
+      userName: "",
+    };
+  }
+
+  throw new Error(`Account ${accountID} is not known in this session. Call beeper_list_accounts before writing.`);
 }
 
 async function confirmWrite(
