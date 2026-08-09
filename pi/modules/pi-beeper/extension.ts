@@ -80,6 +80,7 @@ interface BleeperSessionState {
   uniqueResolutionChatIDs: Set<string>;
   readChatIDsThisTurn: Set<string>;
   readAllThisTurn: boolean;
+  confirmationBypass: boolean;
   budget: SendBudget;
   auditLoadError?: string;
 }
@@ -122,6 +123,7 @@ export function registerPiBeeper(
     uniqueResolutionChatIDs: new Set(),
     readChatIDsThisTurn: new Set(),
     readAllThisTurn: false,
+    confirmationBypass: false,
     budget: new SendBudget(undefined, undefined, undefined, now),
   };
   let setupInProgress = false;
@@ -144,6 +146,7 @@ export function registerPiBeeper(
     state.uniqueResolutionChatIDs.clear();
     state.readChatIDsThisTurn.clear();
     state.readAllThisTurn = false;
+    state.confirmationBypass = false;
     state.auditLoadError = undefined;
 
     const restored = event.reason === "fork" || event.reason === "new"
@@ -273,12 +276,26 @@ export function registerPiBeeper(
     },
   });
 
+  const enableSessionWrites = async (ctx: ExtensionContext): Promise<void> => {
+    if (childEnvironment) {
+      throw new Error("pi-beeper write overrides are disabled in spawned subagents");
+    }
+    await killSwitch.enable();
+    state.confirmationBypass = true;
+    ctx.ui.notify(
+      "pi-beeper writes enabled without per-message confirmation for this session only. Budget, audit, rate, account, and target checks still apply.",
+      "warning",
+    );
+  };
+
   pi.registerCommand("beeper-send-enable", {
-    description: "Remove the pi-beeper write kill switch",
-    handler: async (_args, ctx) => {
-      await killSwitch.enable();
-      ctx.ui.notify("pi-beeper writes enabled, subject to confirmation, budget, rate, and account checks.", "info");
-    },
+    description: "Enable pi-beeper writes and bypass per-message confirmation for this session",
+    handler: async (_args, ctx) => enableSessionWrites(ctx),
+  });
+
+  pi.registerCommand("beeper-allow", {
+    description: "Alias for beeper-send-enable: allow pi-beeper writes without per-message confirmation for this session",
+    handler: async (_args, ctx) => enableSessionWrites(ctx),
   });
 
   pi.registerCommand("beeper-status", {
@@ -289,6 +306,7 @@ export function registerPiBeeper(
         `token: ${credentials.status === "available" && api.hasToken() ? "available" : "missing or rejected"}`,
         `writes: ${budget.sendCount}/12 across ${budget.distinctChatCount}/5 chats`,
         `kill switch: ${killSwitch.isDisabled() ? "enabled, writes blocked" : "off"}`,
+        `confirmation: ${state.confirmationBypass ? "bypassed for this session" : "required per write"}`,
       ].join("\n");
       ctx.ui.notify(status, "info");
     },
@@ -508,10 +526,10 @@ export function registerPiBeeper(
     name: "beeper_send_message",
     label: "Beeper Send Message",
     description:
-      "Send exactly one text message after a non-bypassable human confirmation dialog. The dialog shows the body verbatim, resolved chat, network, participant count, account identity, and louder warning for read-then-send exfiltration. Chat ids must come from an earlier list, search, or unique resolve call in this same session. Sending is refused in no-UI modes, under the kill switch, over the session budget, or when audit logging fails. A successful result means accepted as pending, never delivered.",
+      "Send exactly one text message. By default this requires a human confirmation dialog showing the body verbatim, resolved chat, network, participant count, account identity, and louder warning for read-then-send exfiltration. The user may explicitly run /beeper-send-enable or /beeper-allow to bypass per-message confirmation for the current session only. Chat ids must come from an earlier list, search, or unique resolve call in this same session. Sending is refused under the kill switch, over the session budget, or when audit logging fails. A successful result means accepted as pending, never delivered.",
     promptSnippet: "Send one confirmed Beeper message",
     promptGuidelines: [
-      "Never put beeper_send_message on an auto-approve allowlist; it always requires its own confirmation dialog.",
+      "Do not assume a send is allowed: the user must explicitly enable the session override with /beeper-send-enable or /beeper-allow, otherwise the confirmation dialog is mandatory.",
       "Use beeper_resolve_chat or a prior beeper_list_chats/beeper_search_chats result before beeper_send_message.",
     ],
     executionMode: "sequential",
@@ -532,6 +550,7 @@ export function registerPiBeeper(
           account,
           body: params.text,
           louder: isExfiltrationShape(state, params.chatID),
+          bypassConfirmation: state.confirmationBypass,
         });
         assertWriteStillAllowed(killSwitch, state);
         const reservation = state.budget.reserve(params.chatID);
@@ -592,6 +611,7 @@ export function registerPiBeeper(
           account,
           body: params.reactionKey,
           louder: isExfiltrationShape(state, params.chatID),
+          bypassConfirmation: state.confirmationBypass,
         });
         assertWriteStillAllowed(killSwitch, state);
         const reservation = state.budget.reserve(params.chatID);
@@ -762,8 +782,10 @@ async function confirmWrite(
     account: SeenAccount;
     body: string;
     louder: boolean;
+    bypassConfirmation: boolean;
   },
 ): Promise<void> {
+  if (input.bypassConfirmation) return;
   if (!ctx.hasUI || (ctx.mode !== "tui" && ctx.mode !== "rpc")) {
     throw new Error(
       "Beeper external writes require an interactive or RPC human confirmation dialog. This Pi mode has no confirmation UI, so nothing was written.",

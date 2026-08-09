@@ -210,6 +210,73 @@ test("black-box extension read and confirmed send never expose the token and rep
   );
 });
 
+test("explicit session enable bypasses confirmation but preserves the write guards", async () => {
+  const harness = makeHarness();
+  let confirmationCalls = 0;
+  const responses = [
+    infoResponse(),
+    jsonResponse([{
+      accountID: "account-1",
+      bridge: { id: "signal", type: "signal", provider: "local" },
+      network: "Signal",
+      user: { id: "self", username: "me", fullName: "Me", isSelf: true },
+      status: "connected",
+    }]),
+    infoResponse(),
+    jsonResponse({
+      items: [{
+        id: "chat-1",
+        accountID: "account-1",
+        network: "Signal",
+        title: "Alice",
+        type: "single",
+        participants: { items: [], hasMore: false, total: 2 },
+        unreadCount: 0,
+      }],
+      hasMore: false,
+      oldestCursor: null,
+      newestCursor: null,
+    }),
+    infoResponse(),
+    jsonResponse({ chatID: "chat-1", pendingMessageID: "pending-1" }),
+  ];
+  const fetchImpl: FetchLike = async () => {
+    const response = responses.shift();
+    if (!response) throw new Error("unexpected fetch");
+    return response;
+  };
+  registerPiBeeper(harness.pi, {
+    token: "synthetic-token",
+    fetchImpl,
+    processProbe: async () => true,
+    auditWriter: { append: async () => {} },
+    killSwitch: { isDisabled: () => false, disable: async () => {}, enable: async () => {} },
+    now: () => 10_000,
+  });
+  const ctx = context({
+    ui: {
+      confirm: async () => {
+        confirmationCalls += 1;
+        throw new Error("confirmation should be bypassed");
+      },
+      notify: () => {},
+    },
+  });
+  await harness.handlers.get("session_start")![0]({ reason: "startup" }, ctx);
+  await harness.tools.get("beeper_list_accounts").execute("1", {}, undefined, undefined, ctx);
+  await harness.tools.get("beeper_search_chats").execute("2", { query: "Alice" }, undefined, undefined, ctx);
+  await harness.commands.get("beeper-send-enable").handler("", ctx);
+  const sent = await harness.tools.get("beeper_send_message").execute(
+    "3",
+    { chatID: "chat-1", text: "Hello without a second prompt" },
+    undefined,
+    undefined,
+    ctx,
+  );
+  assert.equal(JSON.parse(sent.content[0].text).pendingMessageID, "pending-1");
+  assert.equal(confirmationCalls, 0);
+});
+
 test("R0 refuses a candidate from an ambiguous resolution", async () => {
   const harness = makeHarness();
   const responses = [

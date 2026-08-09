@@ -177,13 +177,15 @@ real-world blast radius, and unlike a leaked token you cannot rotate an apology.
   refuse to send.
 - One `chatID` per send. No arrays, no fan-out.
 
-### R1. Confirmation on every send, non-bypassable
+### R1. Confirmation on every send, explicit session override
 
-Show the body verbatim, the resolved chat name, the network, the participant count, and
-which of the user's accounts it will appear to come from. The tool must refuse to be added
-to an auto-approve allowlist, and must refuse to send outright if the session is running
-in a blanket auto-approve mode. Draft mode is UX, not a control. An outbox delay is
-optional.
+By default, show the body verbatim, the resolved chat name, the network, the participant
+count, and which of the user's accounts it will appear to come from. The user may
+explicitly run `/beeper-send-enable` or `/beeper-allow` to bypass per-message confirmation
+for the current Pi session only. The override is in-memory, resets on session start/reload,
+is unavailable to spawned subagents, and does not bypass target resolution, account,
+kill-switch, audit, rate, or budget checks. Draft mode is UX, not a control. An outbox
+delay is optional.
 
 Also required:
 

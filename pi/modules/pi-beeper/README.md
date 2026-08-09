@@ -44,11 +44,12 @@ Read results are JSON only. Message text is framed with a random per-call
 nonce, normalized, secret-redacted by default, capped at 2,000 characters per
 message, and capped at 50 KB or 2,000 lines per call. Pass `--beeper-no-redaction` only
 when the user explicitly accepts unredacted message content. Reads never mark
-chats as read. Write tools require a separate human confirmation dialog, an earlier
-same-session chat resolution, an append-only audit record outside the repo, a
-five-second rate limit, and a session budget of twelve writes across five
-chats. `/beeper-kill-switch` disables writes immediately. Spawned Pi subagents
-do not receive write tools.
+chats as read. Write tools require a separate human confirmation dialog by default,
+an earlier same-session chat resolution, an append-only audit record outside the
+repo, a five-second rate limit, and a session budget of twelve writes across five
+chats. The user may explicitly run `/beeper-send-enable` or `/beeper-allow` to
+bypass per-message confirmation for the current session only. `/beeper-kill-switch`
+disables writes immediately. Spawned Pi subagents do not receive write tools.
 
 A send result means Beeper accepted a pending message id for delivery. It does
 not mean that the network delivered the message.
@@ -72,4 +73,6 @@ pnpm upgrade-check
 ```
 
 Do not run a live send during development. Nominate one target chat and review
-its displayed confirmation before the single end-to-end send test.
+its displayed confirmation before the single end-to-end send test. If the user
+explicitly enables the session override, record that the confirmation gate is
+bypassed only until the session reloads.
