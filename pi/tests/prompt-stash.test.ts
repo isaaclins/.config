@@ -25,9 +25,22 @@ test("a held stash survives a reload, including a rebound extension instance (sh
   assert.equal(after.peek(), "draft prompt I am not ready to send");
 });
 
-test("only a reload preserves the stash; other session starts clear it", () => {
+test("a held stash survives /clear's fresh session, including a rebound extension instance", () => {
+  const host: StashHost = {};
+  const before = new PromptStash(stashSlot(host));
+  before.set("draft for after clear");
+
+  const after = new PromptStash(stashSlot(host));
+  const restored = after.onSessionStart("new");
+
+  assert.equal(preservesStash("new"), true);
+  assert.equal(restored, "draft for after clear");
+  assert.equal(after.has, true, "the fresh session keeps holding the stash");
+});
+
+test("startup, resume, and fork clear a held stash", () => {
   assert.equal(preservesStash("reload"), true);
-  for (const reason of ["startup", "new", "resume", "fork"]) {
+  for (const reason of ["startup", "resume", "fork"]) {
     const host: StashHost = {};
     const stash = new PromptStash(stashSlot(host));
     stash.set("held text");

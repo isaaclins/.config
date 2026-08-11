@@ -27,12 +27,12 @@ export function stashSlot(host: StashHost = globalThis as unknown as StashHost):
 }
 
 /**
- * A reload is the only session_start that keeps the stash. Starting, replacing,
- * resuming, or forking a session is a different conversation, so a stash held
- * for the previous one would reappear out of nowhere.
+ * Reloading or starting a fresh session keeps the stash, so /clear does not
+ * discard a draft the user deliberately held. Startup, resume, and fork move to
+ * a conversation where that draft would reappear out of nowhere, so they clear it.
  */
 export function preservesStash(reason: string): boolean {
-  return reason === "reload";
+  return reason === "reload" || reason === "new";
 }
 
 /** Single-slot prompt stash backed by process-scoped storage. */
@@ -68,7 +68,7 @@ export class PromptStash {
 
   /**
    * Apply a session_start. Returns the stash that should be shown again after
-   * a reload, or undefined when nothing should be restored.
+   * a reload or fresh session, or undefined when nothing should be restored.
    */
   onSessionStart(reason: string): string | undefined {
     if (!preservesStash(reason)) {

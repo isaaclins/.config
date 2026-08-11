@@ -36,7 +36,7 @@ One responsibility has one owner. A local extension must not register a competin
 | `model-effort.ts` | model-aware `/effort`, Shift+Tab labels, and switch clamping |
 | `notify-sound.ts` | desktop notification when a prompt finishes (Claude icon, Glass sound, one-line TLDR) |
 | `ollama.ts` | discovers locally installed Ollama models and registers them as the `ollama` provider |
-| `prompt-stash.ts` | `ctrl+s` stash/restore/swap, held across `/reload` |
+| `prompt-stash.ts` | `ctrl+s` stash/restore/swap, held across `/reload` and `/clear` |
 | `reload-when-idle.ts` | `/reload-when-idle`, which reloads now or as soon as streaming and compaction finish |
 | `repo-memory.ts` | deterministic zero-LLM repo map injection |
 | `tool-audit.ts` | tool-call audit tracker plus `/toolaudit` |
