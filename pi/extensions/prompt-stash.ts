@@ -18,9 +18,10 @@ import { promptStashWidget } from "./ui-polish.ts";
  *   widget. This reproduces "stashed prompt reappears after submit".
  *
  * The slot lives in process-scoped storage rather than this factory's
- * closure, because a reload rebinds a fresh extension instance and would
- * otherwise drop a held stash on the floor. Only a reload keeps it; a new,
- * resumed, or forked session starts a different conversation and clears it.
+ * closure, because reloads and session replacements rebind a fresh extension
+ * instance and would otherwise drop a held stash on the floor. Reloads and
+ * fresh sessions keep it, so /clear preserves a deliberately held draft;
+ * startup, resume, and fork clear it.
  *
  * Caveat: ctrl+s is pi's default keybinding for
  * app.session.toggleSort inside the session picker context, not the main
