@@ -59,6 +59,7 @@ interface ChildState {
   childId: string;
   model: string;
   background: boolean;
+  readOnly: boolean;
   status: ChildStatus;
   currentPane: string;
   paneHistory: string[];
@@ -126,11 +127,14 @@ export class DelegationSupervisor {
     createdAt?: string;
     /** Invisible child: its completion is queued instead of interrupting. */
     background?: boolean;
+    /** Child is read-only and must keep that tool allowlist across resume. */
+    readOnly?: boolean;
   }): void {
     const state: ChildState = {
       childId: input.childId,
       model: input.model,
       background: input.background === true,
+      readOnly: input.readOnly === true,
       status: "running",
       currentPane: input.paneId,
       paneHistory: [input.paneId],
@@ -153,6 +157,7 @@ export class DelegationSupervisor {
       piSessionId: input.piSessionId,
       piSessionFile: input.piSessionFile,
       projectRoot: input.projectRoot,
+      readOnly: input.readOnly === true,
       status: "running",
       resumeCount: 0,
       paneHistory: [input.paneId],
@@ -423,6 +428,7 @@ export class DelegationSupervisor {
       // in its worktree, and a background child stays invisible.
       cwd: state.projectRoot,
       background: state.background,
+      readOnly: state.readOnly,
       sessionId: state.piSessionId,
       resumeSessionFile: state.piSessionId ? undefined : state.piSessionFile,
       prompt: options.prompt,

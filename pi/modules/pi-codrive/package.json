@@ -1,6 +1,6 @@
 {
   "name": "@isaaclins/pi-codrive",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Restart-tolerant tmux codrive delegation for Pi",
   "license": "MIT",
   "type": "module",

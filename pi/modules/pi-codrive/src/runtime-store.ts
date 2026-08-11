@@ -34,6 +34,8 @@ export interface ChildRecord {
   piSessionFile?: string;
   /** The project root the child was launched in. */
   projectRoot?: string;
+  /** Whether the child was launched with the strict read-only tool allowlist. */
+  readOnly?: boolean;
   /** Lifecycle status mirrored from the supervisor state machine. */
   status?: ChildStatus;
   /** How many times this child has been relaunched via agent_resume. */
@@ -104,6 +106,7 @@ function normalizeChild(child: ChildRecord, projectRoot: string): ChildRecord {
   return {
     ...child,
     projectRoot: child.projectRoot ?? projectRoot,
+    readOnly: child.readOnly === true,
     status: child.status ?? "running",
     resumeCount: child.resumeCount ?? 0,
     paneHistory:

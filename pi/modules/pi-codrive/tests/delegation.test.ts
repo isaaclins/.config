@@ -9,6 +9,7 @@ import {
   createForkedSession,
   createHarnessSession,
   type CodriveBackend,
+  type DelegationAccountingEvent,
   type SpawnLaunch,
 } from "../src/index.ts";
 
@@ -62,6 +63,47 @@ test("spawn centralizes cwd, model policy, accounting, and descendant identity",
     { childId: child.childId, model: "openai-codex/gpt-5.6-luna" },
   ]);
   assert.deepEqual(controller.session.childIds, [child.childId]);
+});
+
+test("spawn carries the orchestrator's read-only requirement into the child launch", async () => {
+  const projectRoot = mkdtempSync(join(tmpdir(), "pi-codrive-readonly-"));
+  const launches: SpawnLaunch[] = [];
+  const accounted: DelegationAccountingEvent[] = [];
+  const backend: CodriveBackend = {
+    name: "fake",
+    async spawn(launch) {
+      launches.push(launch);
+      return { paneId: "%6" };
+    },
+    async isAlive() {
+      return true;
+    },
+    async read() {
+      return "";
+    },
+    async send() {},
+  };
+  const controller = new CodriveController({
+    session: createHarnessSession({
+      projectRoot,
+      role: "orchestrator",
+      delegationDepth: 0,
+      trust: "trusted",
+    }),
+    backend,
+    policy: {
+      defaultModel: "m",
+      account(event) {
+        accounted.push(event);
+      },
+    },
+  });
+
+  const child = await controller.spawn({ prompt: "audit", readOnly: true });
+
+  assert.equal(launches[0].readOnly, true);
+  assert.equal(child.readOnly, true);
+  assert.equal(accounted[0].readOnly, true);
 });
 
 test("an explicit model overrides defaults while an empty model does not", async () => {
@@ -319,6 +361,25 @@ test("a fresh spawn pre-assigns a pi session id and emits it as --session-id", a
   assert.deepEqual(args, ["--model", "m", "--session-id", child.piSessionId, "go"]);
 });
 
+test("read-only child launches use Pi's strict tool allowlist before the session selector", () => {
+  const args = buildPiArguments({
+    prompt: "audit only",
+    model: "m",
+    readOnly: true,
+    sessionId: "child-session",
+  });
+
+  assert.deepEqual(args, [
+    "--model",
+    "m",
+    "--tools",
+    "read,grep,find,ls",
+    "--session-id",
+    "child-session",
+    "audit only",
+  ]);
+});
+
 test("resume relaunches the same childId with the recorded session id via --session-id", async () => {
   const projectRoot = mkdtempSync(join(tmpdir(), "pi-codrive-resume-ctl-"));
   const launches: SpawnLaunch[] = [];
@@ -354,18 +415,30 @@ test("resume relaunches the same childId with the recorded session id via --sess
     model: "m",
     sessionId: "sess-keep",
     prompt: "continue",
+    readOnly: true,
   });
   assert.equal(resumed.childId, "child-keep");
   assert.equal(launches[0].identity.childId, "child-keep");
   assert.equal(launches[0].sessionId, "sess-keep");
   assert.equal(launches[0].reportSocket, "/tmp/p.sock");
+  assert.equal(launches[0].readOnly, true);
+  assert.equal(resumed.readOnly, true);
   const args = buildPiArguments({
     prompt: launches[0].prompt,
     model: launches[0].model,
+    readOnly: launches[0].readOnly,
     sessionId: launches[0].sessionId,
     resumeSessionFile: launches[0].resumeSessionFile,
   });
-  assert.deepEqual(args, ["--model", "m", "--session-id", "sess-keep", "continue"]);
+  assert.deepEqual(args, [
+    "--model",
+    "m",
+    "--tools",
+    "read,grep,find,ls",
+    "--session-id",
+    "sess-keep",
+    "continue",
+  ]);
 });
 
 test("resume requires a recorded session id or file", async () => {

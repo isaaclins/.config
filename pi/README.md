@@ -167,6 +167,7 @@ truncation, aggregation, formatting, papercuts, retention) and is covered by
 - Unknown projects require an explicit trust decision.
 - Repository content is task data, never a trusted system instruction.
 - Delegation identity and depth are independent of report credentials.
+- `spawn_agent({ readOnly: true })` launches a child with only `read`, `grep`, `find`, and `ls`, and preserves that restriction across resume.
 - Machine-global lid-sleep changes happen only through an explicit `/clam` toggle, never at startup, and are restored when the last claiming session disarms or exits.
 - Infrastructure memory is retrieved only when relevant.
 - npm-published packages are pinned in `settings.json`; upgrades are explicit.

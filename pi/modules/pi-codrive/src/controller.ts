@@ -23,6 +23,8 @@ export interface SpawnLaunch {
    * current view. The pane id stays real, so isAlive/read/send keep working.
    */
   background?: boolean;
+  /** Start the child with Pi's strict read-only tool allowlist. */
+  readOnly?: boolean;
   prompt?: string;
   model: string;
   context: "fresh" | "fork";
@@ -56,6 +58,7 @@ export interface DelegationAccountingEvent {
   backend: string;
   model: string;
   context: "fresh" | "fork";
+  readOnly: boolean;
   timestamp: string;
 }
 
@@ -75,6 +78,8 @@ export interface SpawnRequest {
   cwd?: string;
   /** Spawn into a detached window so the user's view is never taken over. */
   background?: boolean;
+  /** Start the child with mutation-capable agent tools disabled. */
+  readOnly?: boolean;
 }
 
 export interface SpawnedChild {
@@ -85,6 +90,8 @@ export interface SpawnedChild {
   cwd: string;
   /** True when the child was launched into a detached, invisible window. */
   background: boolean;
+  /** True when the child was launched with the strict read-only tool allowlist. */
+  readOnly: boolean;
   /** The pi session id pre-assigned to this child (fresh launches). */
   piSessionId?: string;
   /** The recorded session file the child was launched with (fork launches). */
@@ -98,6 +105,8 @@ export interface ResumeRequest {
   cwd?: string;
   /** Relaunch invisibly, as the original background spawn was. */
   background?: boolean;
+  /** Relaunch with the original read-only restriction. */
+  readOnly?: boolean;
   /** Resume by exact pi session id, emitted as `--session-id <id>`. */
   sessionId?: string;
   /** Resume by session file, emitted as `--session <file>`. */
@@ -176,10 +185,12 @@ export class CodriveController {
     }
     const cwd = request.cwd?.trim() || this.session.projectRoot;
     const background = request.background === true;
+    const readOnly = request.readOnly === true;
     const launched = await this.backend.spawn({
       projectRoot: this.session.projectRoot,
       cwd,
       background,
+      readOnly,
       prompt: request.prompt,
       model,
       context,
@@ -203,6 +214,7 @@ export class CodriveController {
       backend: this.backend.name,
       model,
       context,
+      readOnly,
       timestamp: new Date().toISOString(),
     });
     this.session.childIds.push(childId);
@@ -212,6 +224,7 @@ export class CodriveController {
       model,
       cwd,
       background,
+      readOnly,
       piSessionId,
       piSessionFile: forkSessionFile,
     };
@@ -231,10 +244,12 @@ export class CodriveController {
     }
     const cwd = request.cwd?.trim() || this.session.projectRoot;
     const background = request.background === true;
+    const readOnly = request.readOnly === true;
     const launched = await this.backend.spawn({
       projectRoot: this.session.projectRoot,
       cwd,
       background,
+      readOnly,
       prompt: request.prompt,
       model: request.model,
       context: "fresh",
@@ -256,6 +271,7 @@ export class CodriveController {
       backend: this.backend.name,
       model: request.model,
       context: "fresh",
+      readOnly,
       timestamp: new Date().toISOString(),
     });
     return {
@@ -264,6 +280,7 @@ export class CodriveController {
       model: request.model,
       cwd,
       background,
+      readOnly,
       piSessionId: request.sessionId,
       piSessionFile: request.resumeSessionFile,
     };

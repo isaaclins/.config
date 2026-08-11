@@ -322,6 +322,7 @@ export default function piCodrive(pi: ExtensionAPI): void {
             piSessionFile: child.piSessionFile,
             projectRoot: child.cwd,
             background: true,
+            readOnly: child.readOnly,
           });
           return child.childId;
         },
@@ -369,16 +370,21 @@ export default function piCodrive(pi: ExtensionAPI): void {
     name: "spawn_agent",
     label: "Spawn Subagent",
     description:
-      "Spawn a live Pi subagent in a shared tmux pane. The authenticated completion report is delivered directly as a compact custom message. Set context to 'fork' to give the child a branched copy of this conversation so the prompt does not need to restate prior context; default 'fresh' starts blank and requires a self-contained prompt. A transient provider or stream error no longer looks like completion: the pane stays tracked and the orchestrator is only woken on real completion or when a child needs recovery. Use agent_report for history, agent_pane for live inspection or steering, and agent_resume to relaunch a dead or stuck child. One delegation level only.",
+      "Spawn a live Pi subagent in a shared tmux pane. The authenticated completion report is delivered directly as a compact custom message. Set context to 'fork' to give the child a branched copy of this conversation so the prompt does not need to restate prior context; default 'fresh' starts blank and requires a self-contained prompt. Set readOnly to launch with only Pi's read, grep, find, and ls tools. A transient provider or stream error no longer looks like completion: the pane stays tracked and the orchestrator is only woken on real completion or when a child needs recovery. Use agent_report for history, agent_pane for live inspection or steering, and agent_resume to relaunch a dead or stuck child. One delegation level only.",
     promptGuidelines: [
       "When using spawn_agent, omit model to honor the configured delegation default. Pass model only when the user explicitly requests a different model for that delegation.",
-      "Pass cwd with a worktree path from worktree_create for any child that writes files, so its edits cannot collide with your own working directory. Omit cwd for read-only investigation.",
+      "Set readOnly: true for agents that only inspect or research. Pass cwd with a worktree path from worktree_create for any child that may write files, so its edits cannot collide with your own working directory.",
     ],
     parameters: Type.Object({
       prompt: Type.Optional(Type.String()),
       model: Type.Optional(Type.String()),
       context: Type.Optional(Type.Union([Type.Literal("fresh"), Type.Literal("fork")])),
       cwd: Type.Optional(Type.String()),
+      readOnly: Type.Optional(
+        Type.Boolean({
+          description: "Launch the child with only read, grep, find, and ls enabled",
+        }),
+      ),
     }),
     async execute(_id, params) {
       if (!controller || !ipc || !session || !store || !supervisor) {
@@ -391,6 +397,7 @@ export default function piCodrive(pi: ExtensionAPI): void {
         model: params.model,
         context: params.context,
         cwd: resolveSpawnCwd(params.cwd),
+        readOnly: params.readOnly,
       });
 
       supervisor.registerSpawn({
@@ -401,16 +408,17 @@ export default function piCodrive(pi: ExtensionAPI): void {
         piSessionFile: spawned.piSessionFile,
         projectRoot: spawned.cwd,
         background: spawned.background,
+        readOnly: spawned.readOnly,
       });
 
       return {
         content: [
           {
             type: "text",
-            text: `Spawned shared SUBAGENT tmux pane ${spawned.paneId}. Completion reports arrive automatically; recover it with agent_resume if it dies.`,
+            text: `Spawned shared${spawned.readOnly ? " read-only" : ""} SUBAGENT tmux pane ${spawned.paneId}. Completion reports arrive automatically; recover it with agent_resume if it dies.`,
           },
         ],
-        details: { pane: spawned.paneId },
+        details: { pane: spawned.paneId, readOnly: spawned.readOnly },
       };
     },
   });
@@ -532,7 +540,7 @@ export default function piCodrive(pi: ExtensionAPI): void {
     name: "agent_resume",
     label: "Resume Subagent",
     description:
-      "Relaunch a dead or stuck subagent into a fresh tmux pane, resuming its own recorded pi session non-interactively (never the orchestrator's session). Reuses the same childId, carries report history forward, re-tracks health, and keeps both the new and old pane ids resolvable. Refuses a live healthy child unless force is set. One delegation level only.",
+      "Relaunch a dead or stuck subagent into a fresh tmux pane, resuming its own recorded pi session non-interactively (never the orchestrator's session). Reuses the same childId, preserves its cwd, background, and read-only settings, carries report history forward, re-tracks health, and keeps both the new and old pane ids resolvable. Refuses a live healthy child unless force is set. One delegation level only.",
     parameters: Type.Object({
       pane: Type.String(),
       prompt: Type.Optional(Type.String()),

@@ -91,6 +91,7 @@ export {
 export {
   buildPiArguments,
   createForkedSession,
+  READ_ONLY_TOOLS,
   readSessionEntries,
   readSessionId,
   sanitizeUnsafeThinkingBlocks,
@@ -110,6 +111,7 @@ export {
   defaultRuntimeRoot,
   isCodriveChildEnvironment,
   CHILD_ID_ENV,
+  CHILD_MARKER_ENV,
   NONCE_ENV,
   SESSION_ID_ENV,
   SOCKET_ENV,

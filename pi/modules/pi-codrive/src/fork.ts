@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 
+export const READ_ONLY_TOOLS = ["read", "grep", "find", "ls"] as const;
+
 export interface ForkSessionEntry {
   type: string;
   id?: string;
@@ -191,6 +193,7 @@ export function buildPiArguments(input: {
   prompt?: string;
   model?: string | null;
   thinking?: string | null;
+  readOnly?: boolean;
   sessionId?: string | null;
   resumeSessionFile?: string | null;
   fork?: ForkResult;
@@ -199,6 +202,7 @@ export function buildPiArguments(input: {
   if (input.model) args.push("--model", input.model);
   const thinking = input.fork?.thinkingOverride ?? input.thinking;
   if (thinking) args.push("--thinking", thinking);
+  if (input.readOnly) args.push("--tools", READ_ONLY_TOOLS.join(","));
   if (input.fork) args.push("--session", input.fork.sessionFile);
   else if (input.resumeSessionFile) args.push("--session", input.resumeSessionFile);
   else if (input.sessionId) args.push("--session-id", input.sessionId);

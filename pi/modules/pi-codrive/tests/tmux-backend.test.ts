@@ -155,7 +155,7 @@ test("TmuxBackend.spawn injects child env vars and marks the pane as a subagent"
   // works regardless of quoting/argv details.
   const scriptDir = mkdtempSync(join(tmpdir(), "pi-codrive-env-script-"));
   const scriptPath = join(scriptDir, "dump-env");
-  writeFileSync(scriptPath, "#!/bin/sh\nenv\n");
+  writeFileSync(scriptPath, "#!/bin/sh\nenv\nprintf 'ARGV:%s\\n' \"$*\"\n");
   chmodSync(scriptPath, 0o755);
 
   t.after(() => {
@@ -169,6 +169,7 @@ test("TmuxBackend.spawn injects child env vars and marks the pane as a subagent"
     projectRoot: "/tmp",
     model: "test-model",
     context: "fresh",
+    readOnly: true,
     reportSocket: "/tmp/some.sock",
     reportNonce: "the-nonce",
     identity: {
@@ -189,4 +190,5 @@ test("TmuxBackend.spawn injects child env vars and marks the pane as a subagent"
   assert.match(output, /PI_CODRIVE_NONCE=the-nonce/);
   assert.match(output, /PI_CODRIVE_SESSION_ID=session-42/);
   assert.match(output, /PI_CODRIVE_CHILD_ID=child-42/);
+  assert.match(output, /ARGV:--model test-model --tools read,grep,find,ls/);
 });
