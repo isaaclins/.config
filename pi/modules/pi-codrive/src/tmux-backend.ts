@@ -76,6 +76,7 @@ export class TmuxBackend implements CodriveBackend {
       prompt: launch.prompt,
       model: launch.model,
       thinking: launch.thinking,
+      readOnly: launch.readOnly,
       sessionId: launch.sessionId,
       resumeSessionFile: launch.resumeSessionFile,
       fork: launch.forkSessionFile

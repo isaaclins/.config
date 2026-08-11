@@ -10,6 +10,7 @@ import {
   type CodriveBackend,
   type CodriveController,
   type CodriveEnvelope,
+  type ResumeRequest,
   type SupervisorScheduler,
 } from "../src/index.ts";
 
@@ -85,7 +86,14 @@ function envelope(partial: Partial<CodriveEnvelope> & Pick<CodriveEnvelope, "kin
   };
 }
 
-function makeSupervisor(overrides: { backend?: CodriveBackend; graceMs?: number } = {}) {
+function makeSupervisor(
+  overrides: {
+    backend?: CodriveBackend;
+    controller?: CodriveController;
+    graceMs?: number;
+    readOnly?: boolean;
+  } = {},
+) {
   const runtimeRoot = mkdtempSync(join(tmpdir(), "pi-codrive-sup-"));
   const projectRoot = mkdtempSync(join(tmpdir(), "pi-codrive-sup-proj-"));
   const store = new RuntimeStore(runtimeRoot);
@@ -102,7 +110,7 @@ function makeSupervisor(overrides: { backend?: CodriveBackend; graceMs?: number 
   const supervisor = new DelegationSupervisor({
     sessionId: session.sessionId,
     store,
-    controller: {} as unknown as CodriveController,
+    controller: overrides.controller ?? ({} as unknown as CodriveController),
     backend: overrides.backend ?? idleBackend,
     monitor,
     scheduler: clock.scheduler,
@@ -115,6 +123,7 @@ function makeSupervisor(overrides: { backend?: CodriveBackend; graceMs?: number 
     model: "m",
     piSessionId: "sess-c1",
     projectRoot: session.projectRoot,
+    readOnly: overrides.readOnly,
   });
   return { supervisor, store, session, monitor, clock, wakes };
 }
@@ -228,6 +237,42 @@ test("a session reload farewell keeps the child tracked for its replacement runt
   assert.equal(clock.size(), 0);
   assert.deepEqual(monitor.calls.untrack, []);
   assert.equal(supervisor.isLive("%9"), true);
+});
+
+test("agent_resume keeps a read-only child read-only", async () => {
+  const requests: ResumeRequest[] = [];
+  const controller = {
+    async resume(request: ResumeRequest) {
+      requests.push(request);
+      return {
+        childId: request.childId,
+        paneId: "%10",
+        model: request.model,
+        cwd: request.cwd ?? "/tmp",
+        background: request.background === true,
+        readOnly: request.readOnly === true,
+        piSessionId: request.sessionId,
+        piSessionFile: request.resumeSessionFile,
+      };
+    },
+  } as CodriveController;
+  const backend: CodriveBackend = {
+    ...idleBackend,
+    async isAlive() {
+      return false;
+    },
+  };
+  const { supervisor, store, session } = makeSupervisor({
+    backend,
+    controller,
+    readOnly: true,
+  });
+
+  await supervisor.resume("%9");
+
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].readOnly, true);
+  assert.equal(store.findChildByPane(session.sessionId, "%10")?.readOnly, true);
 });
 
 test("getHistory rejects an unknown pane and records lifecycle entries in order", () => {

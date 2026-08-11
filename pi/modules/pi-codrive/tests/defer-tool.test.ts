@@ -17,6 +17,7 @@ for (const key of [
   "PI_CODRIVE_NONCE",
   "PI_CODRIVE_SESSION_ID",
   "PI_CODRIVE_CHILD_ID",
+  "PI_CODRIVE_CHILD",
   "PI_SPAWN_NOTIFY_FILE",
   "PI_SPAWN_AGENT_REPORT_FILE",
   "TMUX_PANE",
@@ -110,6 +111,21 @@ test("defer exposes create, list, and cancel with both trigger shapes", () => {
   assert.ok(
     (defer.promptGuidelines ?? []).some((line) => /spawn_agent/.test(line)),
     "prompt guidelines contrast defer with spawn_agent",
+  );
+});
+
+test("spawn_agent exposes an explicit readOnly setting for safe investigations", () => {
+  const { tools } = loadExtension();
+  const spawn = tools.get("spawn_agent");
+  assert.ok(spawn, "spawn_agent is registered");
+
+  assert.ok(
+    Object.hasOwn(spawn.parameters.properties ?? {}, "readOnly"),
+    "the orchestrator can require a read-only child",
+  );
+  assert.ok(
+    (spawn.promptGuidelines ?? []).some((line) => /readOnly: true/.test(line)),
+    "the model-facing guidance explains when to require read-only mode",
   );
 });
 

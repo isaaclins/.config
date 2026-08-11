@@ -43,6 +43,7 @@ test("runtime state survives parent restart and accepts a late report", () => {
 
   assert.equal(recovered.session?.projectRoot, session.projectRoot);
   assert.deepEqual(recovered.children.map((child) => child.childId), ["child-1"]);
+  assert.equal(recovered.children[0].readOnly, false, "older child records migrate to writable");
   assert.deepEqual(recovered.reports, [report]);
   assert.equal(statSync(restartedProcess.sessionDirectory(session.sessionId)).mode & 0o077, 0);
   assert.equal(statSync(restartedProcess.statePath(session.sessionId)).mode & 0o077, 0);

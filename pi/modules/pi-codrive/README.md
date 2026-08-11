@@ -67,6 +67,18 @@ Then in your Pi configuration, add the package so its extension is loaded:
 
 Omit `model` when calling `spawn_agent` to use these defaults. Pass `model` only for an explicit override; append a thinking suffix such as `:high` when that override also needs a different thinking level. `fixerModel` is used only by the papercut repair loop below.
 
+## Read-only children
+
+Pass `readOnly: true` to `spawn_agent` when a child only needs to inspect or research. Codrive launches that child with Pi's strict CLI allowlist:
+
+```text
+--tools read,grep,find,ls
+```
+
+The allowlist is applied by Pi before the child's first turn, across built-in, extension, and custom tools. It excludes `bash`, delegation, desktop control, messaging writes, and every other mutation-capable tool. The setting is stored with the child and carried through `agent_resume`, so recovery cannot silently restore write access. Old child records normalize to `readOnly: false`.
+
+This is a tool-capability boundary, not an operating-system sandbox. Extensions still run with the host user's permissions, and user-entered `!` commands remain a user action. Use a container or VM when untrusted code itself must be unable to write.
+
 ## Papercut self-repair
 
 When an agent hits harness friction it personally experienced, it files a papercut with the `papercut` tool (owned by the tool-audit extension) and keeps working. The record is announced on the shared event bus as `papercut:filed`, and this module reacts to it.
@@ -116,7 +128,7 @@ Honest limitation: Pi has no supported seam to preempt a turn while a tool is st
 
 | Tool | Description |
 |------|-------------|
-| `spawn_agent` | Spawn a subagent in a shared tmux pane. Reports arrive automatically via IPC; a transient error no longer looks like completion. |
+| `spawn_agent` | Spawn a subagent in a shared tmux pane, optionally with `readOnly: true`. Reports arrive automatically via IPC; a transient error no longer looks like completion. |
 | `agent_report` | Read lifecycle history for a pane, including interruptions and farewells (recovery/history API). Historical pane ids still resolve after a resume. |
 | `agent_pane` | Read output from or send text to a live subagent pane. After a resume the current pane is used even if you pass an old pane id. |
 | `agent_resume` | Relaunch a dead or stuck subagent into a fresh pane, resuming its own recorded pi session with the same childId. Refuses a live healthy child unless `force`. |
@@ -124,7 +136,7 @@ Honest limitation: Pi has no supported seam to preempt a turn while a tool is st
 
 Commands: `/papercuts` (see above).
 
-Spawns can also be requested with `cwd` (run the child in a worktree instead of the project root) and `background` (a detached tmux window instead of a split of the user's view, with completion queued rather than interrupting). The papercut loop uses both; `spawn_agent` itself stays foreground.
+Spawns can also be requested with `cwd` (run the child in a worktree instead of the project root), `readOnly` (strict `read,grep,find,ls` tool access), and `background` (a detached tmux window instead of a split of the user's view, with completion queued rather than interrupting). The papercut loop uses `cwd` and `background`; `spawn_agent` itself stays foreground.
 
 ## Upstream seam note
 
