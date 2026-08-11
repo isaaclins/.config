@@ -23,6 +23,22 @@ import {
   type ContextBreakdown,
 } from "../src/usage-viz.ts";
 import { createInterruptSubmitHandler } from "../src/interrupt-submit.ts";
+import {
+  baseToolNames,
+  buildGatewayDescription,
+  DEFAULT_FAMILIES,
+  DEFAULT_IDLE_RELEASE_TURNS,
+  familyToolNames,
+  resolveFamily,
+  staleFamilies,
+  withFamily,
+  withoutFamily,
+} from "../src/toolsets.ts";
+
+import { compactSkillsInPrompt } from "../src/skills-index.ts";
+import { registerReadonlyMode } from "../src/readonly.ts";
+
+const GATEWAY_TOOL = "use_toolset";
 
 const NUDGE_MESSAGE_TYPE = "context-handover-nudge";
 const VIZ_MESSAGE_TYPE = "context-viz";
@@ -291,6 +307,108 @@ export default function piContext(pi: ExtensionAPI) {
     },
   });
 
+  // --- Lazy tool families ---
+  const families = DEFAULT_FAMILIES;
+  // family id -> turn index of its last tool call
+  const activeFamilies = new Map<string, number>();
+  let turnIndex = 0;
+
+  const registeredNames = () => new Set(pi.getAllTools().map((tool) => tool.name));
+
+  pi.registerTool({
+    name: GATEWAY_TOOL,
+    label: "Use toolset",
+    description: buildGatewayDescription(families),
+    promptSnippet:
+      "Activate a lazy tool family (desktop_ui for GUI/browser control, diagram for Excalidraw) before deciding a task is impossible.",
+    parameters: Type.Object({
+      family: Type.String({
+        description: `Family id: ${families.map((f) => f.id).join(", ")}`,
+      }),
+      action: Type.Optional(
+        Type.Union([Type.Literal("activate"), Type.Literal("release")], {
+          description: "activate (default) loads the schemas, release unloads them",
+        }),
+      ),
+    }),
+    async execute(_id, params) {
+      const family = resolveFamily(families, params.family);
+      if (!family) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Unknown family "${params.family}". Available: ${families.map((f) => f.id).join(", ")}.`,
+            },
+          ],
+          isError: true,
+          details: {},
+        };
+      }
+
+      const active = pi.getActiveTools();
+      if (params.action === "release") {
+        pi.setActiveTools(withoutFamily(active, family));
+        activeFamilies.delete(family.id);
+        return {
+          content: [{ type: "text", text: `Released ${family.id}.` }],
+          details: {},
+        };
+      }
+
+      const known = registeredNames();
+      const loaded = family.tools.filter((name) => known.has(name));
+      pi.setActiveTools(withFamily(active, family, known));
+      activeFamilies.set(family.id, turnIndex);
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Activated ${family.id}. Callable from your next message: ${loaded.join(", ")}. Full schemas are attached to the next request; call them directly now.`,
+          },
+        ],
+        details: {},
+      };
+    },
+  });
+
+  pi.on("session_start", async () => {
+    pi.setActiveTools(baseToolNames(pi.getActiveTools(), families, GATEWAY_TOOL));
+    activeFamilies.clear();
+  });
+
+  const owned = familyToolNames(families);
+  pi.on("tool_execution_end", async (event) => {
+    const name = (event as unknown as { toolName?: string }).toolName;
+    if (!name || !owned.has(name)) return;
+    const family = families.find((candidate) => candidate.tools.includes(name));
+    if (family) activeFamilies.set(family.id, turnIndex);
+  });
+
+  pi.on("turn_start", async (event) => {
+    turnIndex = (event as unknown as { turnIndex?: number }).turnIndex ?? turnIndex + 1;
+  });
+
+  pi.on("turn_end", async () => {
+    const stale = staleFamilies(activeFamilies, turnIndex, DEFAULT_IDLE_RELEASE_TURNS);
+    if (stale.length === 0) return;
+    let active = pi.getActiveTools();
+    for (const id of stale) {
+      const family = resolveFamily(families, id);
+      if (!family) continue;
+      active = withoutFamily(active, family);
+      activeFamilies.delete(id);
+    }
+    pi.setActiveTools(active);
+  });
+
+  // --- Skills catalog compression ---
+  pi.on("before_agent_start", async (event) => {
+    const compacted = compactSkillsInPrompt(event.systemPrompt);
+    if (!compacted) return undefined;
+    return { systemPrompt: compacted };
+  });
+
   // --- Interrupt-and-submit: ctrl+enter ---
   const handleInterruptSubmit = createInterruptSubmitHandler(pi);
 
@@ -298,4 +416,7 @@ export default function piContext(pi: ExtensionAPI) {
     description: "Stop the active agent and send the current prompt immediately",
     handler: handleInterruptSubmit as unknown as (ctx: ExtensionContext) => Promise<void>,
   });
+
+  // --- Strict read-only tool mode ---
+  registerReadonlyMode(pi);
 }
