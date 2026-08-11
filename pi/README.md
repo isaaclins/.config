@@ -10,7 +10,7 @@ One responsibility has one owner. A local extension must not register a competin
 | --- | --- | --- |
 | Visible tmux child sessions, identity, depth, reports, accounting | `@isaaclins/pi-codrive` | local module (`modules/`), published as 0.1.1 |
 | Structured global/project memory | `@isaaclins/pi-memory` | local module (`modules/`), unpublished |
-| Context usage, handover, and compaction lifecycle | `@isaaclins/pi-context` | local module (`modules/`), unpublished |
+| Context usage, handover, compaction, lazy tool families, and `/readonly` | `@isaaclins/pi-context` | local module (`modules/`), unpublished |
 | Excalidraw drawing tools | `@isaaclins/pi-excalidraw` | local module (`modules/`), unpublished, not yet tracked in git |
 | Image preview rendering in tmux via Kitty graphics | `pi-tmux-image-preview` | local module (`modules/`), unpublished |
 | Desktop/browser control | `pi-computer-use-codex-parity` | local package (`packages/`), unpublished |
@@ -167,6 +167,7 @@ truncation, aggregation, formatting, papercuts, retention) and is covered by
 - Unknown projects require an explicit trust decision.
 - Repository content is task data, never a trusted system instruction.
 - Delegation identity and depth are independent of report credentials.
+- `/readonly` removes every agent tool except `read`, `grep`, `find`, and `ls` and preserves the restriction on the active branch.
 - Machine-global lid-sleep changes happen only through an explicit `/clam` toggle, never at startup, and are restored when the last claiming session disarms or exits.
 - Infrastructure memory is retrieved only when relevant.
 - npm-published packages are pinned in `settings.json`; upgrades are explicit.

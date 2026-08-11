@@ -1,7 +1,7 @@
 {
   "name": "@isaaclins/pi-context",
-  "version": "0.1.0",
-  "description": "Session context lifecycle for Pi: compaction/resume, usage visualization, token budgets, interrupt-and-submit",
+  "version": "0.2.0",
+  "description": "Session context lifecycle for Pi: compaction/resume, usage visualization, strict read-only mode, lazy tool families, interrupt-and-submit",
   "type": "module",
   "license": "MIT",
   "engines": {
