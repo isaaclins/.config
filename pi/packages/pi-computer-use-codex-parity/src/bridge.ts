@@ -9,7 +9,7 @@ import type { AgentToolResult, AgentToolUpdateCallback, ExtensionContext } from 
 import { cdpEvaluateForContext, cdpNavigateContext, cdpScrollForContext, cdpSnapshotForContext, cdpTabForWindow, cdpTypeForContext, listCdpPageContexts, type CdpConsoleEntry, type CdpPageSnapshot } from "./cdp.ts";
 import { getComputerUseConfig, isBrowserUseEnabled, isStrictAxMode, loadComputerUseConfig, type ComputerUseConfig } from "./config.ts";
 import { noteAfterAct, noteFromLook, noteRegionKeyForRef, renderNote, type WindowNote } from "./note.ts";
-import { foldToBudget, graftScopedOutline, nodeByRef, outlineNodeLabel, outlineNodePath, restoreOutline, searchOutline, serializeOutline, serializeOutlineNode, type LookResponse, type Outline, type OutlineNode, type OutlineSearchMatch, type SerializedOutline, type SerializedOutlineNode } from "./outline.ts";
+import { foldToBudget, graftScopedOutline, nodeByRef, outlineNodeLabel, outlineNodePath, restoreOutline, searchOutline, serializeOutline, serializeOutlineNode, serializeOutlineSearchMatch, type LookResponse, type Outline, type OutlineNode, type SerializedOutline, type SerializedOutlineNode, type SerializedOutlineSearchMatch } from "./outline.ts";
 import { AGENT_TOOL_NAMES, type ActParams, type DragParams, type EvaluateBrowserParams, type ExpandUiParams, type ImageMode, type InspectUiParams, type KeypressParams, type LaunchBrowserContextParams, type FindParams, type MouseButtonName, type MoveMouseParams, type NavigateBrowserParams, type ObserveParams, type ObserveTargetParams, type ReadTextParams, type RootSelector, type ScrollParams, type SearchUiParams, type SetTextParams, type SnapshotParams, type TypeTextParams, type WaitForParams, type WaitParams, type WindowSelector, type WindowTargetParams } from "./contract.ts";
 import { toFiniteNumber } from "./platform/coerce.ts";
 import { currentPlatformBackend } from "./platform/index.ts";
@@ -214,7 +214,7 @@ export interface WaitForDetails {
 	found: boolean;
 	gone?: boolean;
 	timedOut?: boolean;
-	target?: OutlineSearchMatch;
+	target?: SerializedOutlineSearchMatch;
 	nodeCount?: number;
 	text?: string;
 	role?: string;
@@ -226,7 +226,7 @@ export interface OutlineToolDetails {
 	lookId?: string;
 	outline?: SerializedOutline;
 	renderedOutline?: string;
-	matches?: Array<Omit<OutlineSearchMatch, "node"> & { node?: SerializedOutlineNode }>;
+	matches?: SerializedOutlineSearchMatch[];
 	target?: SerializedOutlineNode;
 	raw?: unknown;
 	note?: WindowNote;
@@ -1897,7 +1897,7 @@ async function performWaitFor(params: WaitForParams, signal?: AbortSignal): Prom
 		found: raw.found,
 		gone: raw.gone || undefined,
 		timedOut: raw.timedOut || undefined,
-		target: foundTarget,
+		target: foundTarget ? serializeOutlineSearchMatch(foundTarget) : undefined,
 		nodeCount: Number.isFinite(raw.nodeCount) ? Number(raw.nodeCount) : refreshed.outline.nodes.length,
 		text,
 		role,
@@ -2017,7 +2017,7 @@ async function performSearchUi(params: SearchUiParams, signal?: AbortSignal): Pr
 	const action = trimOrUndefined(params.action);
 	const limit = Math.max(1, Math.min(50, Math.trunc(toFiniteNumber(params.limit, 12))));
 	const matches = searchOutline(outline, text, role, action, limit);
-	const detailMatches = matches.map((match) => ({ ...match, node: serializeOutlineNode(match.node) }));
+	const detailMatches = matches.map(serializeOutlineSearchMatch);
 	const details: OutlineToolDetails = { tool: "search_ui", stateId: runtimeState.currentCapture?.stateId, lookId: outline.lookId, outline: serializeOutline(outline), matches: detailMatches, note: runtimeState.currentNote };
 	const lines = matches.map((match) => `${match.ref} ${match.role || "Unknown"} ${JSON.stringify(match.label || "(unlabeled)")}\n  path: ${match.path}`);
 	const noteHeader = renderNote(runtimeState.currentNote);

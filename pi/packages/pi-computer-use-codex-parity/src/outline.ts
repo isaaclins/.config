@@ -89,6 +89,8 @@ export interface OutlineSearchMatch {
 	node: OutlineNode;
 }
 
+export type SerializedOutlineSearchMatch = Omit<OutlineSearchMatch, "node"> & { node: SerializedOutlineNode };
+
 export interface FoldResult {
 	text: string;
 	renderedRefs: string[];
@@ -422,6 +424,10 @@ export function serializeOutline(outline: Outline): SerializedOutline {
 export function serializeOutlineNode(node: OutlineNode): SerializedOutlineNode {
 	const { parent: _parent, children, ...rest } = node;
 	return { ...rest, children: children.map(serializeOutlineNode) };
+}
+
+export function serializeOutlineSearchMatch(match: OutlineSearchMatch): SerializedOutlineSearchMatch {
+	return { ...match, node: serializeOutlineNode(match.node) };
 }
 
 export function restoreOutline(serialized: SerializedOutline): Outline {

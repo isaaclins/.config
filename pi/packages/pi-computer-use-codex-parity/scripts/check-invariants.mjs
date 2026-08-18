@@ -3,7 +3,7 @@ import fs from "node:fs";
 import net from "node:net";
 import path from "node:path";
 import { noteAfterAct, noteFromLook } from "../src/note.ts";
-import { countOutlineNodes, foldToBudget, graftScopedOutline, nodeByRef, parseLookResponse } from "../src/outline.ts";
+import { countOutlineNodes, foldToBudget, graftScopedOutline, nodeByRef, parseLookResponse, serializeOutlineSearchMatch } from "../src/outline.ts";
 import { HELPER_PROTOCOL_VERSION, HELPER_SOCKET_PATH } from "../src/platform/macos/helper.ts";
 
 const root = path.resolve(new URL("..", import.meta.url).pathname);
@@ -125,6 +125,23 @@ function enclosingFunctionName(text, index) {
 	const matches = [...prefix.matchAll(/(?:async\s+)?function\s+([A-Za-z0-9_]+)\s*\(/g)];
 	return matches.at(-1)?.[1] ?? "(unknown)";
 }
+
+check("INV-6 wait target details are JSON serializable", () => {
+	const root = { ref: "@e1", role: "AXWindow", children: [], actions: [], text: [] };
+	const child = { ref: "@e2", role: "AXButton", children: [], parent: root, actions: ["AXPress"], text: [] };
+	root.children.push(child);
+	const target = serializeOutlineSearchMatch({
+		ref: child.ref,
+		role: child.role,
+		label: "Continue",
+		actions: child.actions,
+		path: "AXWindow > AXButton",
+		node: child,
+	});
+	const encoded = JSON.stringify({ tool: "wait_for", found: true, target });
+	assert(encoded.includes('"target"'), "serialized wait target was omitted");
+	assert(!Object.hasOwn(target.node, "parent"), "serialized wait target retained its circular parent link");
+});
 
 check("INV-6 static note is derived and disposable", () => {
 	for (const match of noteTs.matchAll(/export\s+function\s+([A-Za-z0-9_]+)/g)) {
