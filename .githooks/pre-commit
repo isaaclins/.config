@@ -44,7 +44,7 @@ while IFS= read -r path; do
 done < <(git diff --cached --name-only --diff-filter=ACM)
 
 # 2. Content blocklist. Scan staged blob contents for token shapes.
-secret_patterns='sk-ant-[A-Za-z0-9_-]{20,}|sk-proj-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9]{30,}|gho_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|glpat-[A-Za-z0-9_-]{20,}|npm_[A-Za-z0-9]{36}|AIza[0-9A-Za-z_-]{35}|AKIA[0-9A-Z]{16}|xox[abprs]-[A-Za-z0-9-]{10,}|eyJ[A-Za-z0-9_-]{17,}\.eyJ[A-Za-z0-9_-]{17,}\.[A-Za-z0-9_-]{10,}|-----BEGIN (RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----'
+secret_patterns='sk-ant-[A-Za-z0-9_-]{20,}|sk-proj-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9]{30,}|gho_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|glpat-[A-Za-z0-9_-]{20,}|npm_[A-Za-z0-9]{36}|AIza[0-9A-Za-z_-]{35}|AKIA[0-9A-Z]{16}|xox[abprs]-[A-Za-z0-9-]{10,}|bpr[_-][A-Za-z0-9_-]{20,}|beeper[_-][A-Za-z0-9_-]{20,}|eyJ[A-Za-z0-9_-]{17,}\.eyJ[A-Za-z0-9_-]{17,}\.[A-Za-z0-9_-]{10,}|-----BEGIN (RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----'
 
 while IFS= read -r path; do
     [ -z "$path" ] && continue

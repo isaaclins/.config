@@ -23,6 +23,7 @@
     "~/.config/pi/modules/pi-context",
     "~/.config/pi/modules/pi-memory",
     "~/.config/pi/modules/pi-codrive",
+    "~/.config/pi/modules/pi-beeper",
     "~/.config/pi/modules/pi-excalidraw",
     "~/.config/pi/modules/pi-tmux-image-preview",
     "~/.config/pi/packages/pi-computer-use-codex-parity",
